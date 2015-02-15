@@ -29,16 +29,21 @@ ArtNetPlugin::~ArtNetPlugin()
 
 void ArtNetPlugin::init()
 {
+    m_IOmapping.clear();
+
     foreach(QNetworkInterface interface, QNetworkInterface::allInterfaces())
     {
         foreach (QNetworkAddressEntry entry, interface.addressEntries())
         {
             QHostAddress addr = entry.ip();
-            if (addr.protocol() != QAbstractSocket::IPv6Protocol && addr != QHostAddress::LocalHost)
+            if (addr.protocol() != QAbstractSocket::IPv6Protocol)
             {
                 ArtNetIO tmpIO;
                 tmpIO.IPAddress = entry.ip().toString();
-                tmpIO.MACAddress = interface.hardwareAddress();
+                if (addr == QHostAddress::LocalHost)
+                    tmpIO.MACAddress = "11:22:33:44:55:66";
+                else
+                    tmpIO.MACAddress = interface.hardwareAddress();
                 tmpIO.controller = NULL;
                 m_IOmapping.append(tmpIO);
 
@@ -83,7 +88,7 @@ QStringList ArtNetPlugin::outputs()
 {
     QStringList list;
     int j = 0;
-    if (m_IOmapping.count() == 0)
+    if (m_IOmapping.count() < 2)
         init();
     foreach (ArtNetIO line, m_IOmapping)
     {
@@ -95,7 +100,7 @@ QStringList ArtNetPlugin::outputs()
 
 QString ArtNetPlugin::outputInfo(quint32 output)
 {
-    if (m_IOmapping.count() == 0)
+    if (m_IOmapping.count() < 2)
         init();
 
     if (output >= (quint32)m_IOmapping.length())
@@ -127,7 +132,7 @@ QString ArtNetPlugin::outputInfo(quint32 output)
 
 bool ArtNetPlugin::openOutput(quint32 output)
 {
-    if (m_IOmapping.count() == 0)
+    if (m_IOmapping.count() < 2)
         init();
 
     if (output >= (quint32)m_IOmapping.length())
@@ -193,7 +198,7 @@ QStringList ArtNetPlugin::inputs()
 {
     QStringList list;
     int j = 0;
-    if (m_IOmapping.count() == 0)
+    if (m_IOmapping.count() < 2)
         init();
     foreach (ArtNetIO line, m_IOmapping)
     {
@@ -205,7 +210,7 @@ QStringList ArtNetPlugin::inputs()
 
 bool ArtNetPlugin::openInput(quint32 input)
 {
-    if (m_IOmapping.count() == 0)
+    if (m_IOmapping.count() < 2)
         init();
 
     if (input >= (quint32)m_IOmapping.length())
@@ -259,7 +264,7 @@ void ArtNetPlugin::closeInput(quint32 input)
 
 QString ArtNetPlugin::inputInfo(quint32 input)
 {
-    if (m_IOmapping.count() == 0)
+    if (m_IOmapping.count() < 2)
         init();
     if (input >= (quint32)m_IOmapping.length())
         return QString();
