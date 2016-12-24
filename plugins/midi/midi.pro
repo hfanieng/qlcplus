@@ -17,12 +17,18 @@ TRANSLATIONS += MIDI_pt_BR.ts
 TRANSLATIONS += MIDI_ca_ES.ts
 TRANSLATIONS += MIDI_ja_JP.ts
 <<<<<<< HEAD
+<<<<<<< HEAD
 TRANSLATIONS += MIDI_zh_CN.ts
 =======
+=======
+>>>>>>> mcallegari/master
 
 unix:!macx {
    metainfo.path   = $$INSTALLROOT/share/appdata/
    metainfo.files += qlcplus-midi.metainfo.xml
    INSTALLS       += metainfo 
 }
+<<<<<<< HEAD
+>>>>>>> mcallegari/master
+=======
 >>>>>>> mcallegari/master

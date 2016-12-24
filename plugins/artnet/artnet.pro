@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 include(../../variables.pri)
 
 TEMPLATE = lib
@@ -46,10 +47,15 @@ SOURCES += artnetpacketizer.cpp \
            artnetplugin.cpp \
            configureartnet.cpp
 =======
+=======
+>>>>>>> mcallegari/master
 TEMPLATE = subdirs
 CONFIG  += ordered
 SUBDIRS += src
 !android:!ios {
   SUBDIRS += test
 }
+<<<<<<< HEAD
+>>>>>>> mcallegari/master
+=======
 >>>>>>> mcallegari/master
