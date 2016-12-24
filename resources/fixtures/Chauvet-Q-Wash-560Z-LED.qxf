@@ -1,6 +1,6 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE FixtureDefinition>
-<FixtureDefinition xmlns="http://qlcplus.sourceforge.net/FixtureDefinition">
+<FixtureDefinition xmlns="http://www.qlcplus.org/FixtureDefinition">
  <Creator>
   <Name>Q Light Controller Plus</Name>
   <Version>4.8.4 GIT</Version>
@@ -111,7 +111,7 @@
   <Capability Min="0" Max="255">Tilt Fine</Capability>
  </Channel>
  <Channel Name="Pan/Tilt Speed">
-  <Group Byte="1">Maintenance</Group>
+  <Group Byte="0">Speed</Group>
   <Capability Min="0" Max="255">Pan/Tilt speed (Fast to Slow)</Capability>
  </Channel>
  <Mode Name="Basic (12 channel)">

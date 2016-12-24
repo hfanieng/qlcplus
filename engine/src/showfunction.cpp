@@ -17,8 +17,8 @@
   limitations under the License.
 */
 
-#include <QDomDocument>
-#include <QDomElement>
+#include <QXmlStreamReader>
+#include <QXmlStreamWriter>
 #include <QDebug>
 
 #include "showfunction.h"
@@ -30,7 +30,8 @@
 #define KXMLShowFunctionColor "Color"
 #define KXMLShowFunctionLocked "Locked"
 
-ShowFunction::ShowFunction()
+ShowFunction::ShowFunction(QObject *parent)
+    : QObject(parent)
 {
     m_id = Function::invalidId();
     m_startTime = UINT_MAX;
@@ -41,7 +42,11 @@ ShowFunction::ShowFunction()
 
 void ShowFunction::setFunctionID(quint32 id)
 {
+    if (id == m_id)
+        return;
+
     m_id = id;
+    emit functionIDChanged();
 }
 
 quint32 ShowFunction::functionID() const
@@ -51,7 +56,11 @@ quint32 ShowFunction::functionID() const
 
 void ShowFunction::setStartTime(quint32 time)
 {
+    if (time == m_startTime)
+        return;
+
     m_startTime = time;
+    emit startTimeChanged();
 }
 
 quint32 ShowFunction::startTime() const
@@ -61,7 +70,11 @@ quint32 ShowFunction::startTime() const
 
 void ShowFunction::setDuration(quint32 duration)
 {
+    if (duration == m_duration)
+        return;
+
     m_duration = duration;
+    emit durationChanged();
 }
 
 quint32 ShowFunction::duration() const
@@ -71,7 +84,11 @@ quint32 ShowFunction::duration() const
 
 void ShowFunction::setColor(QColor color)
 {
+    if (color == m_color)
+        return;
+
     m_color = color;
+    emit colorChanged();
 }
 
 QColor ShowFunction::color() const
@@ -108,7 +125,11 @@ QColor ShowFunction::defaultColor(Function::Type type)
 
 void ShowFunction::setLocked(bool locked)
 {
+    if (locked == m_locked)
+        return;
+
     m_locked = locked;
+    emit lockedChanged();
 }
 
 bool ShowFunction::isLocked() const
@@ -120,47 +141,49 @@ bool ShowFunction::isLocked() const
  * Load & Save
  ***********************************************************************/
 
-bool ShowFunction::loadXML(const QDomElement &root)
+bool ShowFunction::loadXML(QXmlStreamReader &root)
 {
-    if (root.tagName() != KXMLShowFunction)
+    if (root.name() != KXMLShowFunction)
     {
         qWarning() << Q_FUNC_INFO << "ShowFunction node not found";
         return false;
     }
 
-    if (root.hasAttribute(KXMLShowFunctionID))
-        setFunctionID(root.attribute(KXMLShowFunctionID).toUInt());
-    if (root.hasAttribute(KXMLShowFunctionStartTime))
-        setStartTime(root.attribute(KXMLShowFunctionStartTime).toUInt());
-    if (root.hasAttribute(KXMLShowFunctionDuration))
-        setDuration(root.attribute(KXMLShowFunctionDuration).toUInt());
-    if (root.hasAttribute(KXMLShowFunctionColor))
-        setColor(QColor(root.attribute(KXMLShowFunctionColor)));
-    if (root.hasAttribute(KXMLShowFunctionLocked))
+    QXmlStreamAttributes attrs = root.attributes();
+
+    if (attrs.hasAttribute(KXMLShowFunctionID))
+        setFunctionID(attrs.value(KXMLShowFunctionID).toString().toUInt());
+    if (attrs.hasAttribute(KXMLShowFunctionStartTime))
+        setStartTime(attrs.value(KXMLShowFunctionStartTime).toString().toUInt());
+    if (attrs.hasAttribute(KXMLShowFunctionDuration))
+        setDuration(attrs.value(KXMLShowFunctionDuration).toString().toUInt());
+    if (attrs.hasAttribute(KXMLShowFunctionColor))
+        setColor(QColor(attrs.value(KXMLShowFunctionColor).toString()));
+    if (attrs.hasAttribute(KXMLShowFunctionLocked))
         setLocked(true);
+
+    root.skipCurrentElement();
 
     return true;
 }
 
-bool ShowFunction::saveXML(QDomDocument *doc, QDomElement *root) const
+bool ShowFunction::saveXML(QXmlStreamWriter *doc) const
 {
-    QDomElement tag;
-
-    if (doc == NULL || root == NULL)
-        return false;
+    Q_ASSERT(doc != NULL);
 
     /* Main tag */
-    tag = doc->createElement(KXMLShowFunction);
-    root->appendChild(tag);
+    doc->writeStartElement(KXMLShowFunction);
 
     /* Attributes */
-    tag.setAttribute(KXMLShowFunctionID, functionID());
-    tag.setAttribute(KXMLShowFunctionStartTime, startTime());
-    tag.setAttribute(KXMLShowFunctionDuration, duration());
+    doc->writeAttribute(KXMLShowFunctionID, QString::number(functionID()));
+    doc->writeAttribute(KXMLShowFunctionStartTime, QString::number(startTime()));
+    doc->writeAttribute(KXMLShowFunctionDuration, QString::number(duration()));
     if (color().isValid())
-        tag.setAttribute(KXMLShowFunctionColor, color().name());
+        doc->writeAttribute(KXMLShowFunctionColor, color().name());
     if (isLocked())
-        tag.setAttribute(KXMLShowFunctionLocked, m_locked);
+        doc->writeAttribute(KXMLShowFunctionLocked, QString::number(m_locked));
+
+    doc->writeEndElement();
 
     return true;
 }

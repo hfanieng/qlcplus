@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   fixture.h
 
   Copyright (C) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -21,14 +22,13 @@
 #define FIXTURE_H
 
 #include <QObject>
+#include <QMutex>
 #include <QList>
 #include <QIcon>
 #include <QHash>
 
 #include "qlcchannel.h"
 
-class QDomDocument;
-class QDomElement;
 class QString;
 
 class QLCFixtureDefCache;
@@ -65,12 +65,19 @@ class Fixture : public QObject
     Q_OBJECT
     Q_DISABLE_COPY(Fixture)
 
+    Q_PROPERTY(quint32 id READ id CONSTANT)
+    Q_PROPERTY(QString name READ name WRITE setName NOTIFY changed)
+    Q_PROPERTY(QString type READ type CONSTANT)
+    Q_PROPERTY(quint32 universe READ universe WRITE setUniverse NOTIFY changed)
+    Q_PROPERTY(quint32 address READ address WRITE setAddress NOTIFY changed)
+    Q_PROPERTY(quint32 channels READ channels WRITE setChannels NOTIFY changed)
+
     /*********************************************************************
      * Initialization
      *********************************************************************/
 public:
     /** Create a new fixture instance with the given QObject parent. */
-    Fixture(QObject* parent);
+    Fixture(QObject* parent = 0);
 
     /** Destructor */
     ~Fixture();
@@ -145,14 +152,6 @@ public:
      * @return Fixture type
      */
     QString type();
-
-    /**
-     * Check, whether the fixture is a dimmer-type fixture (i.e. without
-     * a definition).
-     *
-     * @return true if the fixture is a dimmer, otherwise false
-     */
-    bool isDimmer() const;
 
     /*********************************************************************
      * Universe
@@ -256,19 +255,10 @@ public:
                     QLCChannel::PrimaryColour color = QLCChannel::NoColour) const;
 
     /** @see QLCFixtureHead */
-    quint32 panMsbChannel(int head = 0) const;
+    quint32 channelNumber(int type, int controlByte, int head = 0) const;
 
-    /** @see QLCFixtureHead */
-    quint32 tiltMsbChannel(int head = 0) const;
-
-    /** @see QLCFixtureHead */
-    quint32 panLsbChannel(int head = 0) const;
-
-    /** @see QLCFixtureHead */
-    quint32 tiltLsbChannel(int head = 0) const;
-
-    /** @see QLCFixtureHead */
-    quint32 masterIntensityChannel(int head = 0) const;
+    /** @see QLCFixtureMode */
+    quint32 masterIntensityChannel() const;
 
     /** @see QLCFixtureHead */
     QVector <quint32> rgbChannels(int head = 0) const;
@@ -308,9 +298,6 @@ public:
     ChannelModifier *channelModifier(quint32 idx);
 
 protected:
-    /** Create a generic intensity channel */
-    void createGenericChannel();
-
     /** Find and store channel numbers (pan, tilt, intensity) */
     void findChannels();
 
@@ -320,9 +307,6 @@ protected:
 
     /** Number of channels (ONLY for dimmer fixtures!) */
     quint32 m_channels;
-
-    /** Generic intensity channel for dimmer fixtures */
-    QLCChannel* m_genericChannel;
 
     /** List holding the channels indices to exlude from fade transitions */
     QList<int> m_excludeFadeIndices;
@@ -337,6 +321,27 @@ protected:
      *  This is basically the place to store them to be saved/loaded
      *  on the project XML file */
     QHash<quint32, ChannelModifier*> m_channelModifiers;
+
+    /*********************************************************************
+     * Channel values
+     *********************************************************************/
+public:
+    /** Store DMX values for this fixture. If values have changed,
+     * it returns true, otherwise false */
+    bool setChannelValues(QByteArray values);
+
+    /** Return the current DMX values of this fixture */
+    QByteArray channelValues();
+
+    /** Retrieve the DMX value of the given channel index */
+    uchar channelValueAt(int idx);
+
+signals:
+    void valuesChanged();
+
+protected:
+    QByteArray m_values;
+    QMutex m_valuesMutex;
 
     /*********************************************************************
      * Fixture definition
@@ -398,14 +403,34 @@ protected:
     QLCFixtureMode* m_fixtureMode;
 
     /*********************************************************************
+     * Generic Dimmer
+     *********************************************************************/
+public:
+    /** Creates and returns a definition for a generic dimmer pack */
+    QLCFixtureDef *genericDimmerDef(int channels);
+
+    /** Creates and returns a fixture mode for a generic dimmer pack */
+    QLCFixtureMode *genericDimmerMode(QLCFixtureDef *def, int channels);
+
+    /*********************************************************************
      * Generic RGB panel
      *********************************************************************/
 public:
+    enum Components {
+        RGB = 0,
+        BGR,
+        BRG,
+        GBR,
+        GRB,
+        RGBW
+    };
+
+public:
     /** Creates and returns a definition for a generic RGB panel row */
-    QLCFixtureDef *genericRGBPanelDef(int columns);
+    QLCFixtureDef *genericRGBPanelDef(int columns, Components components);
 
     /** Creates and returns a fixture mode for a generic RGB panel row */
-    QLCFixtureMode *genericRGBPanelMode(QLCFixtureDef *def, quint32 width, quint32 height);
+    QLCFixtureMode *genericRGBPanelMode(QLCFixtureDef *def, Components components, quint32 width, quint32 height);
 
     /*********************************************************************
      * Load & Save
@@ -418,7 +443,7 @@ public:
      * @param root The Fixture node to load from
      * @param doc The doc that owns all fixtures
      */
-    static bool loader(const QDomElement& root, Doc* doc);
+    static bool loader(QXmlStreamReader &root, Doc* doc);
 
     /**
      * Load a fixture's contents from the given XML node.
@@ -426,7 +451,7 @@ public:
      * @param root An XML subtree containing a single fixture instance
      * @return true if the fixture was loaded successfully, otherwise false
      */
-    bool loadXML(const QDomElement& root, Doc* doc,
+    bool loadXML(QXmlStreamReader &xmlDoc, Doc* doc,
                  const QLCFixtureDefCache* fixtureDefCache);
 
     /**
@@ -436,7 +461,7 @@ public:
      * @param doc The master XML document to save to.
      * @param wksp_root The workspace root element
      */
-    bool saveXML(QDomDocument* doc, QDomElement* wksp_root) const;
+    bool saveXML(QXmlStreamWriter *doc) const;
 
     /*********************************************************************
      * Status

@@ -9,7 +9,10 @@
 
 require 'libxml'
 
-NS = ['xmlns:http://qlcplus.sourceforge.net/FixtureDefinition']
+NS_URI = 'http://www.qlcplus.org/FixtureDefinition' 
+OLD_NS_URI = 'http://qlcplus.sourceforge.net/FixtureDefinition'
+
+NS = ['xmlns:'+ NS_URI]
 
 class FixtureDef
   class Creator 
@@ -37,6 +40,10 @@ class FixtureDef
 
   class Group
     attr_accessor :byte, :name
+
+    MSB = 0
+    LSB = 1
+
     def initialize(node)
       return if node.empty?
       @name = node.content 
@@ -121,10 +128,10 @@ class FixtureDef
     attr_accessor :width, :height, :depth, :weight
     def initialize(node)
       return if node.empty?
-      @width = node.attributes['Width']
-      @height = node.attributes['Height']
-      @depth = node.attributes['Depth']
-      @weight = node.attributes['Weight']
+      @width = node.attributes['Width'].to_i
+      @height = node.attributes['Height'].to_i
+      @depth = node.attributes['Depth'].to_i
+      @weight = node.attributes['Weight'].to_f
     end
   end
 
@@ -132,8 +139,8 @@ class FixtureDef
     attr_accessor :degrees_min, :degrees_max, :name
     def initialize(node)
       return if node.empty?
-      @degrees_min = node.attributes['DegreesMin']
-      @degrees_max = node.attributes['DegreesMax']
+      @degrees_min = node.attributes['DegreesMin'].to_f
+      @degrees_max = node.attributes['DegreesMax'].to_f
       @name = node.attributes['Name']
     end
   end
@@ -142,8 +149,8 @@ class FixtureDef
     attr_accessor :pan_max, :tilt_max, :type
     def initialize(node)
       return if node.empty?
-      @pan_max = node.attributes['PanMax']
-      @tilt_max = node.attributes['TiltMax']
+      @pan_max = node.attributes['PanMax'].to_i
+      @tilt_max = node.attributes['TiltMax'].to_i
       @type = node.attributes['Type']
     end
   end
@@ -211,29 +218,38 @@ class FixtureDef
   end
 
   def load(path)
-    @doc = LibXML::XML::Document.file(path)
+    qxf = File.read(path)
+    if qxf.include?(OLD_NS_URI)
+        qxf.gsub!(OLD_NS_URI, NS_URI)
+        File.open(path, 'w') {|f| f.write(qxf) }
+    end
+
+    @doc = LibXML::XML::Document.string(qxf)
+    @doc.root.find('//xmlns:Dimensions', NS).each do |node|
+      node['Weight'] = node['Weight'].gsub(',','.')
+    end
+
+    @doc.root.find('//xmlns:Lens', NS).each do |node|
+      node['DegreesMin'] = node['DegreesMin'].gsub(',','.')
+    end
+
+    @doc.root.find('//xmlns:Lens', NS).each do |node|
+      node['DegreesMax'] = node['DegreesMax'].gsub(',','.')
+    end
+
+    @doc.root.find('//xmlns:Author', NS).each do |node|
+      node.content = node.content.gsub('hjunnila', 'Heikki Junnila').gsub('jlgriffin', 'JL Griffin').gsub('griffinwebnet', 'JL Griffin').gsub(',,,', '')
+    end
+
     if @doc.root.namespaces.default.nil?
-      puts "fixing #{path}"
-      @doc.root.find('//Dimensions').each do |node|
-        node['Weight'] = node['Weight'].gsub(',','.')
-      end
+      @doc.root.namespaces.namespace = LibXML::XML::Namespace.new(@doc.root, nil, NS_URI)
+    end
 
-      @doc.root.find('//DegreesMin').each do |node|
-        node['Weight'] = node['Weight'].gsub(',','.')
-      end
+    qxf2 = @doc.to_s(:indent => true, :encoding => LibXML::XML::Encoding::UTF_8)
 
-      @doc.root.find('//DegreesMax').each do |node|
-        node['Weight'] = node['Weight'].gsub(',','.')
-      end
-
-      @doc.root.find('//Author').each do |node|
-        node.content = node.content.gsub('hjunnila', 'Heikki Junnila').gsub('jlgriffin', 'JL Griffin').gsub('griffinwebnet', 'JL Griffin').gsub(',,,', '').gsub('&', '&amp;')
-      end
-
-      @doc.root.namespaces.namespace = LibXML::XML::Namespace.new(@doc.root, nil, "http://qlcplus.sourceforge.net/FixtureDefinition")
-      @doc.save(path, :indent => true, :encoding => LibXML::XML::Encoding::UTF_8)
-
-      @doc = LibXML::XML::Document.file(path)
+    if qxf != qxf2
+      File.open(path, 'w') {|f| f.write(qxf2) }
+      @doc = LibXML::XML::Document.string(qxf2)
     end
     @path = path
     @manufacturer = @doc.find_first('/xmlns:FixtureDefinition/xmlns:Manufacturer', NS).content
@@ -254,26 +270,76 @@ class Fixtures
 
   def load_fixtures(path)
     Dir.chdir(path) do
-      Dir.glob('*.qxf') do |f|
+      Dir.glob('*.qxf').sort.each do |f|
         @fixtures << FixtureDef.new(f)
       end
     end
   end
 
+  def heads_have_common_channels(mode)
+    all_head_channels = mode.heads.inject([]) { |result, h| result + h.channels }.sort
+    unique_head_channels = all_head_channels.uniq.sort
+
+    all_head_channels != unique_head_channels
+  end
+
   def update_fixtures_map(filename = 'FixturesMap.xml')
-    doc = LibXML::XML::Document.file(filename)
+    orig_data = File.read(filename)
+    doc = LibXML::XML::Document.string(orig_data)
     doc.root.children.map(&:remove!)
+    total_wrong = 0
     @fixtures.sort_by {|f| f.path.downcase }.each do |f|
       node = LibXML::XML::Node.new('fixture')
       LibXML::XML::Attr.new(node, 'path', f.path)
       LibXML::XML::Attr.new(node, 'mf', f.manufacturer)
       LibXML::XML::Attr.new(node, 'md', f.model)
+
+      wrong_pan = f.modes.find {|m| m.physical.focus.pan_max == 0 }
+      wrong_tilt = f.modes.find {|m| m.physical.focus.tilt_max == 0 }
+      has_pan = f.channels.find {|c| c.group.name == 'Pan' }
+      has_tilt = f.channels.find {|c| c.group.name == 'Tilt' }
+      wrong_width = f.modes.find {|m| m.physical.dimensions.width == 0 }
+      wrong_height = f.modes.find {|m| m.physical.dimensions.height == 0 }
+      wrong_depth = f.modes.find {|m| m.physical.dimensions.depth == 0 }
+      wrong_weight = f.modes.find {|m| m.physical.dimensions.weight == 0 }
+      wrong_heads = f.modes.find {|m| heads_have_common_channels(m) }
+      wrong_msb = f.channels.select do |c|
+         c.group.byte == FixtureDef::Group::MSB &&
+         (c.name.downcase.include?('fine') || c.name.downcase.include?('least')) &&
+         (f.model != 'Event Bar LED' || c.name != 'Movement (Fine)')
+      end
+      wrong_lsb = f.channels.select {|c| c.group.byte == FixtureDef::Group::LSB && c.name.downcase.include?('coarse') }
+ 
+      problems = []
+      problems << 'PAN' if wrong_pan && has_pan
+      problems << 'TILT' if wrong_tilt && has_tilt
+      problems << 'WIDTH' if wrong_width
+      problems << 'HEIGHT' if wrong_height
+      problems << 'DEPTH' if wrong_depth
+      problems << 'WEIGHT' if wrong_weight
+      problems << 'HEADS' if wrong_heads
+      problems << "MSB: #{wrong_msb.map {|c| c.name}.join(',')}" unless wrong_msb.empty?
+      problems << "LSB: #{wrong_msb.map {|c| c.name}.join(',')}" unless wrong_lsb.empty?
+      
+      unless problems.empty?        
+        puts "#{f.path}: #{problems.join ' '}"
+        total_wrong += 1
+      end
+
       doc.root << node
     end
+
+    puts "wrong: #{total_wrong}"
+
     if doc.root.namespaces.default.nil?
-      doc.root.namespaces.namespace = LibXML::XML::Namespace.new(doc.root, nil, "http://qlcplus.sourceforge.net/FixturesMap")
+      doc.root.namespaces.namespace = LibXML::XML::Namespace.new(doc.root, nil, "http://www.qlcplus.org/FixturesMap")
     end
-    doc.save(filename, :indent => true, :encoding => LibXML::XML::Encoding::UTF_8)
+    new_data = doc.to_s(:indent => true, :encoding => LibXML::XML::Encoding::UTF_8).gsub('http://qlcplus.sourceforge.net/FixturesMap', 'http://www.qlcplus.org/FixturesMap')
+    if orig_data != new_data
+      File.open(filename, 'w') do |f|
+        f.write(new_data)
+      end
+    end
   end
 
   def make_overview(filename = 'index.html')
@@ -440,6 +506,34 @@ EOF
 EOF
     end
   end
+
+  def shutter(filename = 'index.html')
+    File.open(filename, 'w') do |f|
+      @fixtures.sort_by {|f| f.path.downcase }.each do |fix|
+        shutter_channels = fix.channels.select {|ch| ch.group.name == "Shutter" && ch.group.byte == 0 }
+        next if shutter_channels.empty?
+
+        f << <<-EOF
+=== #{fix.manufacturer} #{fix.model}
+#{fix.type}
+
+EOF
+        shutter_channels.each do |ch|
+          f << "-- #{ch.name}\n"
+          ch.capabilities.each do |cap|
+            shutter = "open"
+            if cap.name =~ /close|blackout|off/i
+              shutter = "closed"
+            elsif cap.name =~ /strob|pulse/i
+              shutter = "strobe"
+            end
+          
+            f << "#{cap.min} - #{cap.max} #{shutter} #{cap.name}\n"
+          end
+        end
+      end
+    end
+  end
 end
 
 # LibXML::XML::Error.set_handler(&LibXML::XML::Error::VERBOSE_HANDLER)
@@ -455,4 +549,5 @@ puts "Total fixtures: #{fm.fixtures.size}"
 
 if ARGV.size > 0
   fm.make_overview(ARGV[0])
+  # fm.shutter(ARGV[0])
 end

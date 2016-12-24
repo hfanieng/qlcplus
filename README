@@ -3,7 +3,7 @@ Q Light Controller Plus 4
 Copyright (c) Heikki Junnila
 	      Massimo Callegari
 
-QLC+ on SourceForge: http://qlcplus.sourceforge.net/index.shtml
+QLC+ homepage: http://www.qlcplus.org/
 QLC+ on GitHub: https://github.com/mcallegari/qlcplus
 
 DEVELOPERS AT WORK
@@ -41,8 +41,9 @@ limitations under the License.
 Requirements - Linux
 --------------------
 * Qt >= 4.6 development libraries & tools
+* libudev-dev, libmad0-dev, libsndfile1-dev, libfftw3-dev
 
-* Enttec DMX USB plugin: libftdi-dev, pkg-config
+* DMX USB plugin: libftdi-dev, pkg-config
 * HID plugin: No additional requirements
 * MIDI plugin: libasound, libasound-dev, pkg-config
 * ENTTEC Wing plugin: No additional requirements
@@ -50,72 +51,76 @@ Requirements - Linux
 * uDMX plugin: libusb, libusb-dev, pkg-config
 * Peperoni plugin: libusb, libusb-dev, pkg-config
 * Velleman plugin: Not available for Linux
-* OSC plugin: liblo-dev, pkg-config
+* OSC plugin: No additional requirements
 * ArtNet plugin: No additional requirements
+* E1.31 plugin: No additional requirements
+* Loopback plugin: No additional requirements
 
 Requirements - Windows
 ----------------------
-* MinGW / MSYS environment (http://sourceforge.net/projects/mingw/files/Installer/mingw-get-inst/)
-* Qt >= 4.6 (http://releases.qt-project.org/qt4/source/)
+* MSYS2 environment (https://msys2.github.io/)
+* Qt >= 5.0.x (http://download.qt.io/official_releases/qt/)
 
-* Enttec DMX USB plugin: No additional requirements
-* HID plugin: Not available
+* DMX USB plugin: D2XX driver & development package (http://www.ftdichip.com/Drivers/D2XX.htm)
+* HID plugin: No additional requirements
 * MIDI plugin: No additional requirements
 * ENTTEC Wing plugin: D2XX driver & development package (http://www.ftdichip.com/Drivers/D2XX.htm)
-* OLA plugin: Not available for Windows
+* OLA plugin: Not available
 * uDMX plugin: No additional requirements
 * Peperoni plugin: No additional requirements
 * Velleman plugin: K8062 SDK from www.velleman.eu
-* OSC plugin: liblo, pkg-config
+* OSC plugin: No additional requirements
 * ArtNet plugin: No additional requirements
+* E1.31 plugin: No additional requirements
+* Loopback plugin: No additional requirements
 
 Requirements - Mac OS X
 -----------------------
 * XCode (http://developer.apple.com/technologies/tools/xcode.html)
-* Qt SDK >= 4.8.x (http://qt.nokia.com/downloads/qt-for-open-source-cpp-development-on-mac-os-x)
+* Qt SDK >= 5.0.x (http://download.qt.io/official_releases/qt/)
+* macports (https://www.macports.org/)
 
-* Enttec DMX USB plugin: macports, libftdi-dev, pkg-config
-* HID plugin: Not available
+* DMX USB plugin: macports, libftdi-dev, pkg-config
+* HID plugin: No additional requirements
 * MIDI plugin: No additional requirements
 * ENTTEC Wing plugin: No additional requirements
 * OLA plugin: libola, ola-dev, pkg-config (see libs/olaout/README)
 * uDMX plugin: macports, libusb-compat, pkg-config
 * Peperoni plugin: macports, libusb-compat, pkg-config
-* Velleman plugin: Not available for OSX
-* OSC plugin: liblo, pkg-config
+* Velleman plugin: Not available
+* OSC plugin: No additional requirements
 * ArtNet plugin: No additional requirements
+* E1.31 plugin: No additional requirements
+* Loopback plugin: No additional requirements
 
 Compiling & Installation
 ------------------------
 
-For windows, just install the latest Qt package from Trolltech along with the
-default MinGW setup and start the Qt command prompt. For Linux or OSX, in
-addition to the Qt libraries, you need also Qt development packages.
-
-As normal user, type to your X terminal:
-	qmake
-and then:
-	make
-and then (as administrator/root):
-	make install
-
+Please refer to the online wiki pages: https://github.com/mcallegari/qlcplus/wiki
 
 Support & Bug Reports
 ---------------------
 For discussions, feedbacks, ideas and new fixtures, go to:
-http://sourceforge.net/p/qlcplus/discussion/
+http://www.qlcplus.org/forum/index.php
 For developers wiki and code patches, go to:
 https://github.com/mcallegari/qlcplus
 
 Contributors
 ------------
 QLC+:
-Jano Svitok (Bugfixes, new features)
+Jano Svitok (bugfix, new features and improvements)
+David Garyga (bugfix, new features and improvements)
+Robert Box (fixtures review)
 Thomas Achtner (ENTTEC wing improvements)
 Joep Admiraal (MIDI SysEx init messages, Dutch translation)
 Florian Euchner (FX5 USB DMX support)
 Stefan Riemens (new features)
-David Garyga (bugfix and improvements)
+Simon Newton, Peter Newman (OLA plugin)
+Janosch Frank (webaccess improvements)
+Karri Kaksonen (DMX USB Eurolite USB DMX512 Pro support)
+Stefan Krupop (HID DMXControl Projects e.V. Nodle U1 support)
+Nathan Durnan (RGB scripts, new features)
+Giorgio Rebecchi (new features)
 Heiko Fanieng, Jannis Achstetter (German translation)
 NiKoyes, Jérôme Lebleu (French translation)
 Raymond Van Laake (Dutch translation)
@@ -130,7 +135,6 @@ Stefan Krumm (Bugfixes, new features)
 Christian Suehs (Bugfixes, new features)
 Christopher Staite (Bugfixes)
 Klaus Weidenbach (Bugfixes, German translation)
-Simon Newton (OLA plugin)
 Lutz Hillebrand (uDMX plugin)
 Matthew Jaggard (Velleman plugin)
 Ptit Vachon (French translation)

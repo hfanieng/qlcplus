@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   rgbmatrix.h
 
   Copyright (c) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -29,18 +30,64 @@
 #include <QMap>
 #include <QMutex>
 
-#include "rgbscript.h"
+#ifdef QT_QML_LIB
+  #include "rgbscriptv4.h"
+#else
+  #include "rgbscript.h"
+#endif
 #include "function.h"
 
+class QElapsedTimer;
 class FixtureGroup;
 class GenericFader;
 class FadeChannel;
-class QTime;
 class QDir;
 
 /** @addtogroup engine_functions Functions
  * @{
  */
+
+class RGBMatrixStep
+{
+public:
+    RGBMatrixStep();
+    ~RGBMatrixStep() { }
+
+public:
+    /** Set/Get the current step index */
+    void setCurrentStepIndex(int index);
+    int currentStepIndex() const;
+
+    /** Calculate the RGB components delta between $startColor and $endColor */
+    void calculateColorDelta(QColor startColor, QColor endColor);
+
+    /** Set/Get the final color of the next step to be reproduced */
+    void setStepColor(QColor color);
+    QColor stepColor();
+
+    /** Update the color of the next step to be reproduced, considering the step index,
+     *  the start color and the steps count */
+    void updateStepColor(int step, QColor startColor, int stepsCount);
+
+    /** Initialize the playback direction and set the initial step index and
+      * color based on $startColor and $endColor */
+    void initializeDirection(Function::Direction direction, QColor startColor, QColor endColor, int stepsCount);
+
+    /** Check the steps progression based on $order and the internal m_direction.
+     *  This method returns true if the RGBMatrix can continue to run, otherwise
+     *  false is returned and the caller should stop the RGBMatrix */
+    bool checkNextStep(Function::RunOrder order, QColor startColor, QColor endColor, int stepsNumber);
+
+private:
+    /** The current direction of the steps playback */
+    Function::Direction m_direction;
+    /** The index of the algorithm step currently being reproduced */
+    int m_currentStepIndex;
+    /** The RGB color passed to the currently loaded algorithm */
+    QColor m_stepColor;
+    /** Color delta values of the RGB components between each step */
+    int m_crDelta, m_cgDelta, m_cbDelta;
+};
 
 class RGBMatrix : public Function
 {
@@ -54,15 +101,27 @@ public:
     RGBMatrix(Doc* parent);
     ~RGBMatrix();
 
+    /** @reimp */
+    QIcon getIcon() const;
+
     /*********************************************************************
      * Contents
      *********************************************************************/
 public:
-    /** Set the matrix total duration in milliseconds */
+    /** @reimpl */
     void setTotalDuration(quint32 msec);
 
-    /** Get the matrix total duration in milliseconds */
+    /** @reimpl */
     quint32 totalDuration();
+
+    /** Set the matrix to control or not the dimmer channel */
+    void setDimmerControl(bool dimmerControl);
+
+    /** Get the matrix ability to control the dimmer channel */
+    bool dimmerControl() const;
+
+private:
+    bool m_dimmerControl;
 
     /*********************************************************************
      * Copying
@@ -83,6 +142,7 @@ public:
 
 private:
     quint32 m_fixtureGroupID;
+    FixtureGroup *m_group;
 
     /************************************************************************
      * Algorithm
@@ -101,7 +161,7 @@ public:
     int stepsCount();
 
     /** Get the preview of the current algorithm at the given step */
-    RGBMap previewMap(int step);
+    RGBMap previewMap(int step, RGBMatrixStep *handler);
 
 private:
     RGBAlgorithm* m_algorithm;
@@ -117,14 +177,12 @@ public:
     void setEndColor(const QColor& c);
     QColor endColor() const;
 
-    void calculateColorDelta();
-    void setStepColor(QColor color);
-    QColor stepColor();
-    void updateStepColor(int step);
+    void updateColorDelta();
 
 private:
     QColor m_startColor;
     QColor m_endColor;
+    RGBMatrixStep *m_stepHandler;
 
     /************************************************************************
      * Properties
@@ -145,10 +203,10 @@ private:
      ************************************************************************/
 public:
     /** @reimpl */
-    bool loadXML(const QDomElement& root);
+    bool loadXML(QXmlStreamReader &root);
 
     /** @reimpl */
-    bool saveXML(QDomDocument* doc, QDomElement* root);
+    bool saveXML(QXmlStreamWriter *doc);
 
     /************************************************************************
      * Running
@@ -168,7 +226,7 @@ public:
 
 private:
     /** Check what should be done when elapsed() >= duration() */
-    void roundCheck(const QSize& size);
+    void roundCheck();
 
     /** Update new FadeChannels to m_fader when $map has changed since last time */
     void updateMapChannels(const RGBMap& map, const FixtureGroup* grp);
@@ -177,13 +235,18 @@ private:
     void insertStartValues(FadeChannel& fc, uint fadeTime) const;
 
 private:
-    Function::Direction m_direction;
+    /** Reference of a GenericFader in charge of actually sending DMX data
+     *  of the current RGB Matrix step, including fade transitions */
     GenericFader* m_fader;
-    int m_step;
-    QTime* m_roundTime;
-    QColor m_stepColor;
-    int m_crDelta, m_cgDelta, m_cbDelta;
-    int m_stepCount;
+
+    /** Reference to a timer counting the time in ms between steps */
+    QElapsedTimer* m_roundTime;
+
+    /** The number of steps returned by the currently loaded algorithm */
+    int m_stepsCount;
+
+    /** The duration of a step based on the current BPM (Beats tempo only) */
+    uint m_stepBeatDuration;
 
     /*********************************************************************
      * Attributes
@@ -191,6 +254,13 @@ private:
 public:
     /** @reimpl */
     void adjustAttribute(qreal fraction, int attributeIndex);
+
+    /*************************************************************************
+     * Blend mode
+     *************************************************************************/
+public:
+    /** @reimpl */
+    void setBlendMode(Universe::BlendMode mode);
 };
 
 /** @} */

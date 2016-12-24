@@ -17,13 +17,13 @@
   limitations under the License.
 */
 
+#include <QXmlStreamReader>
+#include <QXmlStreamWriter>
 #include <QDebug>
 #include <QFont>
 
 #include "monitorproperties.h"
 #include "doc.h"
-#include <QDomDocument>
-#include <QDomElement>
 
 #define KXMLQLCMonitorDisplay "DisplayMode"
 #define KXMLQLCMonitorChannels "ChannelStyle"
@@ -101,128 +101,117 @@ void MonitorProperties::reset()
  * Load & Save
  *********************************************************************/
 
-bool MonitorProperties::loadXML(const QDomElement &root, const Doc * mainDocument)
+bool MonitorProperties::loadXML(QXmlStreamReader &root, const Doc * mainDocument)
 {
-    if (root.tagName() != KXMLQLCMonitorProperties)
+    if (root.name() != KXMLQLCMonitorProperties)
     {
         qWarning() << Q_FUNC_INFO << "Monitor node not found";
         return false;
     }
 
-    if (root.hasAttribute(KXMLQLCMonitorDisplay) == false)
+    QXmlStreamAttributes attrs = root.attributes();
+
+    if (attrs.hasAttribute(KXMLQLCMonitorDisplay) == false)
     {
         qWarning() << Q_FUNC_INFO << "Cannot determine Monitor display mode !";
         return false;
     }
 
-    setDisplayMode(DisplayMode(root.attribute(KXMLQLCMonitorDisplay).toInt()));
-    if (root.hasAttribute(KXMLQLCMonitorShowLabels))
+    setDisplayMode(DisplayMode(attrs.value(KXMLQLCMonitorDisplay).toString().toInt()));
+    if (attrs.hasAttribute(KXMLQLCMonitorShowLabels))
     {
-        if (root.attribute(KXMLQLCMonitorShowLabels) == "1")
+        if (attrs.value(KXMLQLCMonitorShowLabels).toString() == "1")
             setLabelsVisible(true);
         else
             setLabelsVisible(false);
     }
 
-    QDomNode node = root.firstChild();
-    while (node.isNull() == false)
+    while (root.readNextStartElement())
     {
-        QDomElement tag = node.toElement();
-
-        if (tag.tagName() == KXMLQLCMonitorFont)
+        QXmlStreamAttributes tAttrs = root.attributes();
+        if (root.name() == KXMLQLCMonitorFont)
         {
             QFont fn;
-            fn.fromString(tag.text());
+            fn.fromString(root.readElementText());
             setFont(fn);
         }
-        else if (tag.tagName() == KXMLQLCMonitorChannels)
-            setChannelStyle(ChannelStyle(tag.text().toInt()));
-        else if (tag.tagName() == KXMLQLCMonitorValues)
-            setValueStyle(ValueStyle(tag.text().toInt()));
-        else if (tag.tagName() == KXMLQLCMonitorCommonBackground)
-            setCommonBackgroundImage(mainDocument->denormalizeComponentPath(tag.text()));
-        else if (tag.tagName() == KXMLQLCMonitorCustomBgItem)
+        else if (root.name() == KXMLQLCMonitorChannels)
+            setChannelStyle(ChannelStyle(root.readElementText().toInt()));
+        else if (root.name() == KXMLQLCMonitorValues)
+            setValueStyle(ValueStyle(root.readElementText().toInt()));
+        else if (root.name() == KXMLQLCMonitorCommonBackground)
+            setCommonBackgroundImage(mainDocument->denormalizeComponentPath(root.readElementText()));
+        else if (root.name() == KXMLQLCMonitorCustomBgItem)
         {
-            if (tag.hasAttribute(KXMLQLCMonitorCustomBgFuncID))
+            if (tAttrs.hasAttribute(KXMLQLCMonitorCustomBgFuncID))
             {
-                quint32 fid = tag.attribute(KXMLQLCMonitorCustomBgFuncID).toUInt();
-                setCustomBackgroundItem(fid, mainDocument->denormalizeComponentPath(tag.text()));
+                quint32 fid = tAttrs.value(KXMLQLCMonitorCustomBgFuncID).toString().toUInt();
+                setCustomBackgroundItem(fid, mainDocument->denormalizeComponentPath(root.readElementText()));
             }
         }
-        else if (tag.tagName() == KXMLQLCMonitorGrid)
+        else if (root.name() == KXMLQLCMonitorGrid)
         {
             int w = 5, h = 5;
-            if (tag.hasAttribute(KXMLQLCMonitorGridWidth))
-                w = tag.attribute(KXMLQLCMonitorGridWidth).toInt();
-            if (tag.hasAttribute(KXMLQLCMonitorGridHeight))
-                h = tag.attribute(KXMLQLCMonitorGridHeight).toInt();
-            if (tag.hasAttribute(KXMLQLCMonitorGridUnits))
-                setGridUnits(GridUnits(tag.attribute(KXMLQLCMonitorGridUnits).toInt()));
+            if (tAttrs.hasAttribute(KXMLQLCMonitorGridWidth))
+                w = tAttrs.value(KXMLQLCMonitorGridWidth).toString().toInt();
+            if (tAttrs.hasAttribute(KXMLQLCMonitorGridHeight))
+                h = tAttrs.value(KXMLQLCMonitorGridHeight).toString().toInt();
+            if (tAttrs.hasAttribute(KXMLQLCMonitorGridUnits))
+                setGridUnits(GridUnits(tAttrs.value(KXMLQLCMonitorGridUnits).toString().toInt()));
 
             setGridSize(QSize(w, h));
+            root.skipCurrentElement();
         }
-        else if (tag.tagName() == KXMLQLCMonitorFixtureItem)
+        else if (root.name() == KXMLQLCMonitorFixtureItem)
         {
-            if (tag.hasAttribute(KXMLQLCMonitorFixtureID))
+            if (tAttrs.hasAttribute(KXMLQLCMonitorFixtureID))
             {
-                quint32 fid = tag.attribute(KXMLQLCMonitorFixtureID).toUInt();
+                quint32 fid = tAttrs.value(KXMLQLCMonitorFixtureID).toString().toUInt();
                 QPointF pos(0, 0);
-                if (tag.hasAttribute(KXMLQLCMonitorFixtureXPos))
-                    pos.setX(tag.attribute(KXMLQLCMonitorFixtureXPos).toDouble());
-                if (tag.hasAttribute(KXMLQLCMonitorFixtureYPos))
-                    pos.setY(tag.attribute(KXMLQLCMonitorFixtureYPos).toDouble());                
+                if (tAttrs.hasAttribute(KXMLQLCMonitorFixtureXPos))
+                    pos.setX(tAttrs.value(KXMLQLCMonitorFixtureXPos).toString().toDouble());
+                if (tAttrs.hasAttribute(KXMLQLCMonitorFixtureYPos))
+                    pos.setY(tAttrs.value(KXMLQLCMonitorFixtureYPos).toString().toDouble());
                 setFixturePosition(fid, pos);
 
-                if (tag.hasAttribute(KXMLQLCMonitorFixtureRotation))
-                    setFixtureRotation(fid, tag.attribute(KXMLQLCMonitorFixtureRotation).toUShort());
+                if (tAttrs.hasAttribute(KXMLQLCMonitorFixtureRotation))
+                    setFixtureRotation(fid, tAttrs.value(KXMLQLCMonitorFixtureRotation).toString().toUShort());
 
-                if (tag.hasAttribute(KXMLQLCMonitorFixtureGelColor))
-                    setFixtureGelColor(fid, QColor(tag.attribute(KXMLQLCMonitorFixtureGelColor)));
+                if (tAttrs.hasAttribute(KXMLQLCMonitorFixtureGelColor))
+                    setFixtureGelColor(fid, QColor(tAttrs.value(KXMLQLCMonitorFixtureGelColor).toString()));
+                root.skipCurrentElement();
             }
         }
-
-        node = node.nextSibling();
+        else
+        {
+            qWarning() << Q_FUNC_INFO << "Unknown MonitorProperties tag:" << root.name();
+            root.skipCurrentElement();
+        }
     }
     return true;
 }
 
-bool MonitorProperties::saveXML(QDomDocument *doc, QDomElement *wksp_root, const Doc * mainDocument) const
+bool MonitorProperties::saveXML(QXmlStreamWriter *doc, const Doc *mainDocument) const
 {
     Q_ASSERT(doc != NULL);
-    Q_ASSERT(wksp_root != NULL);
-
-    QDomElement root;
-    QDomElement tag;
-    QDomText text;
 
     /* Create the master Monitor node */
-    root = doc->createElement(KXMLQLCMonitorProperties);
-    root.setAttribute(KXMLQLCMonitorDisplay, displayMode());
-    root.setAttribute(KXMLQLCMonitorShowLabels, labelsVisible());
-    wksp_root->appendChild(root);
+    doc->writeStartElement(KXMLQLCMonitorProperties);
+    doc->writeAttribute(KXMLQLCMonitorDisplay, QString::number(displayMode()));
+    doc->writeAttribute(KXMLQLCMonitorShowLabels, QString::number(labelsVisible()));
 
+    /* Font */
+    doc->writeTextElement(KXMLQLCMonitorFont, font().toString());
+    /* Channels style */
+    doc->writeTextElement(KXMLQLCMonitorChannels, QString::number(channelStyle()));
+    /* Values style */
+    doc->writeTextElement(KXMLQLCMonitorValues, QString::number(valueStyle()));
 
-    tag = doc->createElement(KXMLQLCMonitorFont);
-    root.appendChild(tag);
-    text = doc->createTextNode(font().toString());
-    tag.appendChild(text);
-
-    tag = doc->createElement(KXMLQLCMonitorChannels);
-    root.appendChild(tag);
-    text = doc->createTextNode(QString::number(channelStyle()));
-    tag.appendChild(text);
-
-    tag = doc->createElement(KXMLQLCMonitorValues);
-    root.appendChild(tag);
-    text = doc->createTextNode(QString::number(valueStyle()));
-    tag.appendChild(text);
-
+    /* Background */
     if (commonBackgroundImage().isEmpty() == false)
     {
-        tag = doc->createElement(KXMLQLCMonitorCommonBackground);
-        root.appendChild(tag);
-        text = doc->createTextNode(mainDocument->normalizeComponentPath(commonBackgroundImage()));
-        tag.appendChild(text);
+        doc->writeTextElement(KXMLQLCMonitorCommonBackground,
+                              mainDocument->normalizeComponentPath(commonBackgroundImage()));
     }
     else if(customBackgroundList().isEmpty() == false)
     {
@@ -230,37 +219,37 @@ bool MonitorProperties::saveXML(QDomDocument *doc, QDomElement *wksp_root, const
         while (it.hasNext() == true)
         {
             it.next();
- 
-            tag = doc->createElement(KXMLQLCMonitorCustomBgItem);
-            root.appendChild(tag);
+            doc->writeStartElement(KXMLQLCMonitorCustomBgItem);
             quint32 fid = it.key();
-            tag.setAttribute(KXMLQLCMonitorCustomBgFuncID, fid);
-            text = doc->createTextNode(mainDocument->normalizeComponentPath(it.value()));
-            tag.appendChild(text);
+            doc->writeAttribute(KXMLQLCMonitorCustomBgFuncID, QString::number(fid));
+            doc->writeCharacters(mainDocument->normalizeComponentPath(it.value()));
+            doc->writeEndElement();
         }
     }
 
-    tag = doc->createElement(KXMLQLCMonitorGrid);
-    tag.setAttribute(KXMLQLCMonitorGridWidth, gridSize().width());
-    tag.setAttribute(KXMLQLCMonitorGridHeight, gridSize().height());
-    tag.setAttribute(KXMLQLCMonitorGridUnits, gridUnits());
-    root.appendChild(tag);
+    doc->writeStartElement(KXMLQLCMonitorGrid);
+    doc->writeAttribute(KXMLQLCMonitorGridWidth, QString::number(gridSize().width()));
+    doc->writeAttribute(KXMLQLCMonitorGridHeight, QString::number(gridSize().height()));
+    doc->writeAttribute(KXMLQLCMonitorGridUnits, QString::number(gridUnits()));
+    doc->writeEndElement();
 
     foreach (quint32 fid, fixtureItemsID())
     {
         QPointF pos = fixturePosition(fid);
-        tag = doc->createElement(KXMLQLCMonitorFixtureItem);
-        tag.setAttribute(KXMLQLCMonitorFixtureID, fid);
-        tag.setAttribute(KXMLQLCMonitorFixtureXPos, QString::number(pos.x()));
-        tag.setAttribute(KXMLQLCMonitorFixtureYPos, QString::number(pos.y()));
+        doc->writeStartElement(KXMLQLCMonitorFixtureItem);
+        doc->writeAttribute(KXMLQLCMonitorFixtureID, QString::number(fid));
+        doc->writeAttribute(KXMLQLCMonitorFixtureXPos, QString::number(pos.x()));
+        doc->writeAttribute(KXMLQLCMonitorFixtureYPos, QString::number(pos.y()));
         if (fixtureRotation(fid) != 0)
-            tag.setAttribute(KXMLQLCMonitorFixtureRotation, QString::number(fixtureRotation(fid)));
+            doc->writeAttribute(KXMLQLCMonitorFixtureRotation, QString::number(fixtureRotation(fid)));
 
         QColor col = fixtureGelColor(fid);
         if (col.isValid())
-            tag.setAttribute(KXMLQLCMonitorFixtureGelColor, col.name());
-        root.appendChild(tag);
+            doc->writeAttribute(KXMLQLCMonitorFixtureGelColor, col.name());
+        doc->writeEndElement();
     }
+
+    doc->writeEndElement();
 
     return true;
 }

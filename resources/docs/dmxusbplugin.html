@@ -24,7 +24,7 @@ The DMX USB plugin supports a variety of FTDI-based USB-to-DMX devices:
  <LI><A HREF="http://www.guselectronics.com/usb-dmx-interface-512">Gus Electronics USB-VL344</A></LI>
  <LI><A HREF="http://www.dmx512-online.net/en-article58.html">Vince DMX512 USB</A></LI>
  <LI><A HREF="http://www.electrotas.com/usbdmx.html">ElectroTAS USB-DMX</A></LI>
- <LI><A HREF="http://sourceforge.net/apps/trac/qlc/wiki/FTDI-USB-COM485-Plus1">FTDI USBCOM 485+</A></LI>
+ <LI><A HREF="http://www.ftdichip.com/Products/Modules/USBRSxxx.htm">FTDI USBCOM 485+</A></LI>
 </UL>
 
 <H1>2 Configuration</H1>
@@ -44,11 +44,13 @@ Here's the meaning of each one:
  <LI><B>DMX4ALL</B>: DMX4ALL USB-DMX STAGE-PROFI MK2</LI>
  <LI><B>Vince Tx</B>: Vince DMX512 USB in output mode</LI>
 </UL>
+<B>Note for OSX users:</B> If your adapter is detected but doesn't produce any output, most likely you'll find the solution
+in the <A HREF="questionsandanswers.html#osx-mavericks">Questions and Answers</A> page.
 </P>
 
 <H1>3 Requirements</H1>
 
-<H2>2.1 Linux</H2>
+<H2>3.1 Linux</H2>
 <P>
 On all Linux distributions, you need to install libftdi. If you install QLC+ with the Ubuntu
 Software Center or some other automatic installer tool, this library will be installed
@@ -58,25 +60,17 @@ to the "dialout" group with the following command:<br>
 <PRE>sudo adduser your_user_name dialout</PRE>
 </P>
 
-<H2>2.2 Mac OS X</H2>
+<H2>3.2 Mac OS X</H2>
 <P>
 On the Apple Mac OS X, you don't need any drivers at all since QLC+ uses the OS X native USB
 interface. Installing the D2XX drivers should cause no harm, but <B>DO NOT INSTALL VCP drivers</B> as they will definitely interfere
 with QLC+. If you have previously installed the VCP drivers, consult the
 <A HREF="http://www.ftdichip.com/Support/Documents/InstallGuides.htm">FTDI installation guides</A> on how to uninstall them.<br>
 <br>
-<B>OSX Mavericks issues</B>: The problem is in a new Apple USB driver. The procedure to disable it follows below.<br>
-<B>Please note that this can compromise the behaviour of other USB devices, so do it only 
-if you know what you're doing! </B><br>
-From a terminal type the following commands:<br>
-<PRE>
-cd /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns
-sudo mv AppleUSBFTDI.kext AppleUSBFTDI.disabled
-sudo touch /System/Library/Extensions
-</PRE>
+<B>OSX Mavericks (or later) issues</B>: please check <a href="questionsandanswers.html#osx-mavericks">Questions &amp; answers #4</A>
 </P>
 
-<H2>2.3 Windows</H2>
+<H2>3.3 Windows</H2>
 <P>
 On Microsoft Windows, the plugin needs the <A HREF="http://www.ftdichip.com/Drivers/D2XX.htm">latest D2XX drivers from FTDI</A>.
 Consult the <A HREF="http://www.ftdichip.com/Support/Documents/InstallGuides.htm">FTDI installation guides</A> on how to install the drivers.

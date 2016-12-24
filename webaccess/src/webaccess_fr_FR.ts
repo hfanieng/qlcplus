@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.0" language="fr_FR">
+<TS version="2.1" language="fr_FR">
 <context>
     <name>WebAccess</name>
     <message>
@@ -11,7 +11,7 @@
     <message>
         <location filename="webaccess.cpp" line="244"/>
         <source>Fixture stored and loaded</source>
-        <translation>Projecteurs stockés et chargés</translation>
+        <translation>Appareils enregistrés et chargés</translation>
     </message>
     <message>
         <location filename="webaccess.cpp" line="398"/>
@@ -90,7 +90,7 @@
     <message>
         <location filename="webaccessconfiguration.cpp" line="235"/>
         <source>Load fixture</source>
-        <translation>Charger un projecteur</translation>
+        <translation>Charger un appareil</translation>
     </message>
     <message>
         <location filename="webaccessconfiguration.cpp" line="269"/>
@@ -115,7 +115,7 @@
     <message>
         <location filename="webaccessconfiguration.cpp" line="299"/>
         <source>User loaded fixtures</source>
-        <translation>Projecteurs chargés manuellement</translation>
+        <translation>Appareils chargés manuellement</translation>
     </message>
 </context>
 <context>
@@ -123,17 +123,17 @@
     <message>
         <location filename="webaccessnetwork.cpp" line="64"/>
         <source>Network interface: </source>
-        <translation>Interface réseau :</translation>
+        <translation>Interface réseau : </translation>
     </message>
     <message>
         <location filename="webaccessnetwork.cpp" line="69"/>
         <source>Access point name (SSID): </source>
-        <translation>Point d&apos;accès Wi-Fi (SSID) :</translation>
+        <translation>Nom du point d&apos;accès Wi-Fi (SSID) : </translation>
     </message>
     <message>
         <location filename="webaccessnetwork.cpp" line="71"/>
         <source>WPA-PSK Password: </source>
-        <translation>Clé WPA-PSK :</translation>
+        <translation>Clé WPA-PSK : </translation>
     </message>
     <message>
         <location filename="webaccessnetwork.cpp" line="76"/>
@@ -153,7 +153,7 @@
     <message>
         <location filename="webaccessnetwork.cpp" line="84"/>
         <source>Netmask: </source>
-        <translation>Masque de réseau : </translation>
+        <translation>Masque de sous-réseau : </translation>
     </message>
     <message>
         <location filename="webaccessnetwork.cpp" line="86"/>
@@ -164,7 +164,7 @@
         <location filename="webaccessnetwork.cpp" line="89"/>
         <location filename="webaccessnetwork.cpp" line="230"/>
         <source>Apply changes</source>
-        <translation>Appliquer les changements</translation>
+        <translation>Appliquer les modifications</translation>
     </message>
     <message>
         <location filename="webaccessnetwork.cpp" line="213"/>
@@ -199,7 +199,7 @@
     <message>
         <location filename="webaccessnetwork.cpp" line="235"/>
         <source>Shutdown</source>
-        <translation type="unfinished"></translation>
+        <translation>Éteindre</translation>
     </message>
 </context>
 <context>
@@ -217,17 +217,17 @@
     <message>
         <location filename="webaccesssimpledesk.cpp" line="56"/>
         <source>Previous page</source>
-        <translation type="unfinished"></translation>
+        <translation>Page précédente</translation>
     </message>
     <message>
         <location filename="webaccesssimpledesk.cpp" line="64"/>
         <source>Next page</source>
-        <translation type="unfinished"></translation>
+        <translation>Page suivante</translation>
     </message>
     <message>
         <location filename="webaccesssimpledesk.cpp" line="67"/>
         <source>Reset universe</source>
-        <translation type="unfinished"></translation>
+        <translation>Réinitialiser l&apos;univers</translation>
     </message>
     <message>
         <location filename="webaccesssimpledesk.cpp" line="69"/>

@@ -20,11 +20,14 @@
 #include <QDebug>
 
 #include "vcspeeddialproperties.h"
+#include "inputselectionwidget.h"
 #include "vcspeeddialfunction.h"
+#include "speeddialwidget.h"
 #include "selectinputchannel.h"
 #include "functionselection.h"
 #include "assignhotkey.h"
 #include "vcspeeddial.h"
+#include "vcspeeddialpreset.h"
 #include "inputpatch.h"
 #include "speeddial.h"
 #include "apputil.h"
@@ -37,7 +40,6 @@
 #define COL_FADEOUT  2
 #define COL_DURATION 3
 
-
 VCSpeedDialProperties::VCSpeedDialProperties(VCSpeedDial* dial, Doc* doc)
     : QDialog(dial)
     , m_dial(dial)
@@ -47,6 +49,9 @@ VCSpeedDialProperties::VCSpeedDialProperties(VCSpeedDial* dial, Doc* doc)
     Q_ASSERT(doc != NULL);
 
     setupUi(this);
+
+    // IDs 0-15 are reserved for speed dial base controls
+    m_lastAssignedID = 15;
 
     /* Name */
     m_nameEdit->setText(m_dial->caption());
@@ -64,20 +69,75 @@ VCSpeedDialProperties::VCSpeedDialProperties(VCSpeedDial* dial, Doc* doc)
     m_tree->setItemDelegateForColumn(COL_DURATION, new ComboBoxDelegate(multiplierNames, this));
 
     /* Absolute input */
-    m_absoluteMinSpin->setValue(m_dial->absoluteValueMin() / 1000);
-    m_absoluteMaxSpin->setValue(m_dial->absoluteValueMax() / 1000);
-    m_absoluteInputSource = m_dial->inputSource(VCSpeedDial::absoluteInputSourceId);
+    connect(m_absolutePrecisionCb, SIGNAL(toggled(bool)),
+            this, SLOT(slotAbsolutePrecisionCbChecked(bool)));
+    if (m_dial->absoluteValueMin() % (1000) || m_dial->absoluteValueMax() % (1000))
+    {
+        m_absolutePrecisionCb->setChecked(true);
+        m_absoluteMinSpin->setValue(m_dial->absoluteValueMin());
+        m_absoluteMaxSpin->setValue(m_dial->absoluteValueMax());
+    }
+    else
+    {
+        m_absolutePrecisionCb->setChecked(false);
+        m_absoluteMinSpin->setValue(m_dial->absoluteValueMin() / 1000);
+        m_absoluteMaxSpin->setValue(m_dial->absoluteValueMax() / 1000);
+    }
+    m_absoluteInputWidget = new InputSelectionWidget(m_doc, this);
+    m_absoluteInputWidget->setInputSource(m_dial->inputSource(VCSpeedDial::absoluteInputSourceId));
+    m_absoluteInputWidget->setWidgetPage(m_dial->page());
+    m_absoluteInputWidget->setKeyInputVisibility(false);
+    m_absoluteInputWidget->show();
+    m_absoluteInputLayout->addWidget(m_absoluteInputWidget);
 
     /* Tap input */
-    m_tapInputSource = m_dial->inputSource(VCSpeedDial::tapInputSourceId);
+    m_tapInputWidget = new InputSelectionWidget(m_doc, this);
+    m_tapInputWidget->setInputSource(m_dial->inputSource(VCSpeedDial::tapInputSourceId));
+    m_tapInputWidget->setWidgetPage(m_dial->page());
+    m_tapInputWidget->setKeySequence(dial->tapKeySequence());
+    m_tapInputWidget->show();
+    m_tapInputLayout->addWidget(m_tapInputWidget);
 
-    /* Key sequence */
-    m_tapKeySequence = QKeySequence(dial->keySequence());
-    m_keyEdit->setText(m_tapKeySequence.toString(QKeySequence::NativeText));
+    /* Apply input */
+    m_applyInputWidget = new InputSelectionWidget(m_doc, this);
+    m_applyInputWidget->setInputSource(m_dial->inputSource(VCSpeedDial::applyInputSourceId));
+    m_applyInputWidget->setWidgetPage(m_dial->page());
+    m_applyInputWidget->setKeySequence(dial->applyKeySequence());
+    m_applyInputWidget->show();
+    m_applyInputLayout->addWidget(m_applyInputWidget);
 
-    updateInputSources();
+    // Mult/Div options
+    m_resetFactorOnDialChangeCb->setChecked(m_dial->resetFactorOnDialChange());
 
-    ushort dialMask = m_dial->visibilityMask();
+    /* Mult input */
+    m_multInputWidget = new InputSelectionWidget(m_doc, this);
+    m_multInputWidget->setTitle(tr("Multiply by 2 Input"));
+    m_multInputWidget->setInputSource(m_dial->inputSource(VCSpeedDial::multInputSourceId));
+    m_multInputWidget->setWidgetPage(m_dial->page());
+    m_multInputWidget->setKeySequence(dial->multKeySequence());
+    m_multInputWidget->show();
+    m_multInputLayout->addWidget(m_multInputWidget);
+
+    /* Div input */
+    m_divInputWidget = new InputSelectionWidget(m_doc, this);
+    m_divInputWidget->setTitle(tr("Divide by 2 Input"));
+    m_divInputWidget->setInputSource(m_dial->inputSource(VCSpeedDial::divInputSourceId));
+    m_divInputWidget->setWidgetPage(m_dial->page());
+    m_divInputWidget->setKeySequence(dial->divKeySequence());
+    m_divInputWidget->show();
+    m_divInputLayout->addWidget(m_divInputWidget);
+
+    /* MultDiv Reset input */
+    m_multDivResetInputWidget = new InputSelectionWidget(m_doc, this);
+    m_multDivResetInputWidget->setTitle(tr("Factor Reset Input"));
+    m_multDivResetInputWidget->setInputSource(m_dial->inputSource(VCSpeedDial::multDivResetInputSourceId));
+    m_multDivResetInputWidget->setWidgetPage(m_dial->page());
+    m_multDivResetInputWidget->setKeySequence(dial->multDivResetKeySequence());
+    m_multDivResetInputWidget->show();
+    m_multDivResetInputLayout->addWidget(m_multDivResetInputWidget);
+
+    /* Visibility */
+    quint32 dialMask = m_dial->visibilityMask();
     if (dialMask & SpeedDial::PlusMinus) m_pmCheck->setChecked(true);
     if (dialMask & SpeedDial::Dial) m_dialCheck->setChecked(true);
     if (dialMask & SpeedDial::Tap) m_tapCheck->setChecked(true);
@@ -85,18 +145,47 @@ VCSpeedDialProperties::VCSpeedDialProperties(VCSpeedDial* dial, Doc* doc)
     if (dialMask & SpeedDial::Minutes) m_minCheck->setChecked(true);
     if (dialMask & SpeedDial::Seconds) m_secCheck->setChecked(true);
     if (dialMask & SpeedDial::Milliseconds) m_msCheck->setChecked(true);
-    if (dialMask & SpeedDial::Infinite) m_infiniteCheck->setChecked(true);
+    if (dialMask & VCSpeedDial::MultDiv) m_mdCheck->setChecked(true);
+    if (dialMask & VCSpeedDial::Apply) m_applyCheck->setChecked(true);
 
-    connect(m_autoDetectAbsoluteInputButton, SIGNAL(toggled(bool)),
-            this, SLOT(slotAutoDetectAbsoluteInputSourceToggled(bool)));
-    connect(m_autoDetectTapInputButton, SIGNAL(toggled(bool)),
-            this, SLOT(slotAutoDetectTapInputSourceToggled(bool)));
-    connect(m_attachKey, SIGNAL(clicked()), this, SLOT(slotAttachKey()));
-    connect(m_detachKey, SIGNAL(clicked()), this, SLOT(slotDetachKey()));
+    /* Presets */
+    foreach(VCSpeedDialPreset const* preset, m_dial->presets())
+    {
+        m_presets.append(new VCSpeedDialPreset(*preset));
+        if (preset->m_id > m_lastAssignedID)
+            m_lastAssignedID = preset->m_id;
+    }
+    m_presetsTree->setSelectionMode(QAbstractItemView::SingleSelection);
+    updateTree();
+
+    connect(m_presetsTree, SIGNAL(itemClicked(QTreeWidgetItem*,int)),
+            this, SLOT(slotTreeSelectionChanged()));
+
+    connect(m_addPresetButton, SIGNAL(clicked()),
+            this, SLOT(slotAddPresetClicked()));
+    connect(m_removePresetButton, SIGNAL(clicked()),
+            this, SLOT(slotRemovePresetClicked()));
+    connect(m_presetNameEdit, SIGNAL(textEdited(QString const&)),
+            this, SLOT(slotPresetNameEdited(QString const&)));
+
+    connect(m_speedDialWidget, SIGNAL(valueChanged(int)),
+            this, SLOT(slotSpeedDialWidgetValueChanged(int)));
+
+    connect(m_adPresetInputButton, SIGNAL(toggled(bool)),
+            this, SLOT(slotAutoDetectPresetInputToggled(bool)));
+    connect(m_choosePresetInputButton, SIGNAL(clicked()),
+            this, SLOT(slotChoosePresetInputClicked()));
+
+    connect(m_attachPresetKey, SIGNAL(clicked()), this, SLOT(slotAttachPresetKey()));
+    connect(m_detachPresetKey, SIGNAL(clicked()), this, SLOT(slotDetachPresetKey()));
 }
 
 VCSpeedDialProperties::~VCSpeedDialProperties()
 {
+    foreach (VCSpeedDialPreset* preset, m_presets)
+    {
+        delete preset;
+    }
 }
 
 void VCSpeedDialProperties::accept()
@@ -108,14 +197,31 @@ void VCSpeedDialProperties::accept()
     m_dial->setFunctions(functions());
 
     /* Input sources */
-    m_dial->setAbsoluteValueRange(m_absoluteMinSpin->value() * 1000,
-                                  m_absoluteMaxSpin->value() * 1000);
-    m_dial->setInputSource(m_absoluteInputSource, VCSpeedDial::absoluteInputSourceId);
-    m_dial->setInputSource(m_tapInputSource, VCSpeedDial::tapInputSourceId);
+    if (m_absolutePrecisionCb->isChecked())
+        m_dial->setAbsoluteValueRange(m_absoluteMinSpin->value(),
+                                      m_absoluteMaxSpin->value());
+    else
+        m_dial->setAbsoluteValueRange(m_absoluteMinSpin->value() * 1000,
+                                      m_absoluteMaxSpin->value() * 1000);
+    m_dial->setInputSource(m_absoluteInputWidget->inputSource(), VCSpeedDial::absoluteInputSourceId);
 
-    m_dial->setKeySequence(m_tapKeySequence);
+    m_dial->setInputSource(m_tapInputWidget->inputSource(), VCSpeedDial::tapInputSourceId);
+    m_dial->setTapKeySequence(m_tapInputWidget->keySequence());
 
-    ushort dialMask = 0;
+    m_dial->setInputSource(m_applyInputWidget->inputSource(), VCSpeedDial::applyInputSourceId);
+    m_dial->setApplyKeySequence(m_applyInputWidget->keySequence());
+
+    // Mult & Div
+    m_dial->setResetFactorOnDialChange(m_resetFactorOnDialChangeCb->isChecked());
+    m_dial->setInputSource(m_multInputWidget->inputSource(), VCSpeedDial::multInputSourceId);
+    m_dial->setMultKeySequence(m_multInputWidget->keySequence());
+    m_dial->setInputSource(m_divInputWidget->inputSource(), VCSpeedDial::divInputSourceId);
+    m_dial->setDivKeySequence(m_divInputWidget->keySequence());
+    m_dial->setInputSource(m_multDivResetInputWidget->inputSource(), VCSpeedDial::multDivResetInputSourceId);
+    m_dial->setMultDivResetKeySequence(m_multDivResetInputWidget->keySequence());
+
+    /* Visibility */
+    quint32 dialMask = 0;
     if (m_pmCheck->isChecked()) dialMask |= SpeedDial::PlusMinus;
     if (m_dialCheck->isChecked()) dialMask |= SpeedDial::Dial;
     if (m_tapCheck->isChecked()) dialMask |= SpeedDial::Tap;
@@ -123,9 +229,14 @@ void VCSpeedDialProperties::accept()
     if (m_minCheck->isChecked()) dialMask |= SpeedDial::Minutes;
     if (m_secCheck->isChecked()) dialMask |= SpeedDial::Seconds;
     if (m_msCheck->isChecked()) dialMask |= SpeedDial::Milliseconds;
-    if (m_infiniteCheck->isChecked()) dialMask |= SpeedDial::Infinite;
-
+    if (m_mdCheck->isChecked()) dialMask |= VCSpeedDial::MultDiv;
+    if (m_applyCheck->isChecked()) dialMask |= VCSpeedDial::Apply;
     m_dial->setVisibilityMask(dialMask);
+
+    /* Presets */
+    m_dial->resetPresets();
+    for (int i = 0; i < m_presets.count(); i++)
+        m_dial->addPreset(*m_presets.at(i));
 
     QDialog::accept();
 }
@@ -203,110 +314,242 @@ void VCSpeedDialProperties::createFunctionItem(const VCSpeedDialFunction &speedd
  * Input page
  ****************************************************************************/
 
-void VCSpeedDialProperties::updateInputSources()
+void VCSpeedDialProperties::slotAbsolutePrecisionCbChecked(bool checked)
+{
+    if (checked)
+    {
+        m_absoluteMinSpin->setSuffix("ms");
+        m_absoluteMinSpin->setMaximum(600 * 1000);
+        m_absoluteMinSpin->setValue(m_absoluteMinSpin->value() * 1000);
+        m_absoluteMaxSpin->setSuffix("ms");
+        m_absoluteMaxSpin->setMaximum(600 * 1000);
+        m_absoluteMaxSpin->setValue(m_absoluteMaxSpin->value() * 1000);
+    }
+    else
+    {
+        m_absoluteMinSpin->setSuffix("s");
+        m_absoluteMinSpin->setValue(m_absoluteMinSpin->value() / 1000);
+        m_absoluteMinSpin->setMaximum(600);
+        m_absoluteMaxSpin->setSuffix("s");
+        m_absoluteMaxSpin->setValue(m_absoluteMaxSpin->value() / 1000);
+        m_absoluteMaxSpin->setMaximum(600);
+    }
+}
+
+/*********************************************************************
+ * Presets
+ *********************************************************************/
+
+void VCSpeedDialProperties::updateTree()
+{
+    m_presetsTree->blockSignals(true);
+    m_presetsTree->clear();
+    foreach(VCSpeedDialPreset* preset, m_presets)
+    {
+        QTreeWidgetItem *item = new QTreeWidgetItem(m_presetsTree);
+        item->setData(0, Qt::UserRole, preset->m_id);
+        item->setText(0, preset->m_name);
+        item->setText(1, Function::speedToString(preset->m_value));
+    }
+    m_presetsTree->resizeColumnToContents(0);
+    m_presetsTree->blockSignals(false);
+}
+
+void VCSpeedDialProperties::updateTreeItem(VCSpeedDialPreset const& preset)
+{
+    m_presetsTree->blockSignals(true);
+    m_presetsTree->resizeColumnToContents(0);
+    for (int i = 0; i < m_presetsTree->topLevelItemCount(); ++i)
+    {
+        QTreeWidgetItem* treeItem = m_presetsTree->topLevelItem(i);
+        if (treeItem->data(0, Qt::UserRole).toUInt() == preset.m_id)
+        {
+            treeItem->setText(0, preset.m_name);
+            treeItem->setText(1, Function::speedToString(preset.m_value));
+            m_presetsTree->blockSignals(false);
+            return;
+        }
+    }
+    Q_ASSERT(false);
+}
+
+VCSpeedDialPreset* VCSpeedDialProperties::getSelectedPreset()
+{
+    if (m_presetsTree->selectedItems().isEmpty())
+        return NULL;
+
+    QTreeWidgetItem* item = m_presetsTree->selectedItems().first();
+    if (item != NULL)
+    {
+        quint8 presetID = item->data(0, Qt::UserRole).toUInt();
+        foreach(VCSpeedDialPreset* preset, m_presets)
+        {
+            if (preset->m_id == presetID)
+                return preset;
+        }
+    }
+
+    Q_ASSERT(false);
+    return NULL;
+}
+
+void VCSpeedDialProperties::addPreset(VCSpeedDialPreset *preset)
+{
+    m_presets.append(preset);
+}
+
+void VCSpeedDialProperties::removePreset(quint8 id)
+{
+    for(int i = 0; i < m_presets.count(); i++)
+    {
+        if (m_presets.at(i)->m_id == id)
+        {
+            m_presets.removeAt(i);
+            return;
+        }
+    }
+}
+
+void VCSpeedDialProperties::slotAddPresetClicked()
+{
+    VCSpeedDialPreset *newPreset = new VCSpeedDialPreset(++m_lastAssignedID);
+    newPreset->m_value = 1000;
+    newPreset->m_name = Function::speedToString(1000);
+    addPreset(newPreset);
+    updateTree();
+}
+
+void VCSpeedDialProperties::slotRemovePresetClicked()
+{
+    if (m_presetsTree->selectedItems().isEmpty())
+        return;
+    QTreeWidgetItem *selItem = m_presetsTree->selectedItems().first();
+    quint8 ctlID = selItem->data(0, Qt::UserRole).toUInt();
+    removePreset(ctlID);
+    updateTree();
+}
+
+void VCSpeedDialProperties::updatePresetInputSource(QSharedPointer<QLCInputSource> const& source)
 {
     QString uniName;
     QString chName;
 
-    // Absolute
-    if (m_doc->inputOutputMap()->inputSourceNames(m_absoluteInputSource, uniName, chName) == false)
+    if (m_doc->inputOutputMap()->inputSourceNames(source, uniName, chName) == false)
     {
         uniName = KInputNone;
         chName = KInputNone;
     }
-    m_absoluteInputUniverseEdit->setText(uniName);
-    m_absoluteInputChannelEdit->setText(chName);
 
-    // Tap
-    if (m_doc->inputOutputMap()->inputSourceNames(m_tapInputSource, uniName, chName) == false)
-    {
-        uniName = KInputNone;
-        chName = KInputNone;
-    }
-    m_tapInputUniverseEdit->setText(uniName);
-    m_tapInputChannelEdit->setText(chName);
+    m_presetInputUniverseEdit->setText(uniName);
+    m_presetInputChannelEdit->setText(chName);
 }
 
-void VCSpeedDialProperties::slotAbsoluteInputValueChanged(quint32 universe, quint32 channel)
+void VCSpeedDialProperties::slotTreeSelectionChanged()
 {
-    if (m_absoluteInputSource != NULL)
-        delete m_absoluteInputSource;
-    m_absoluteInputSource = new QLCInputSource(universe, (m_dial->page() << 16) | channel);
-    updateInputSources();
-}
+    VCSpeedDialPreset* preset = getSelectedPreset();
 
-void VCSpeedDialProperties::slotTapInputValueChanged(quint32 universe, quint32 channel)
-{
-    if (m_tapInputSource != NULL)
-        delete m_tapInputSource;
-    m_tapInputSource = new QLCInputSource(universe, (m_dial->page() << 16) | channel);
-    updateInputSources();
-}
-
-void VCSpeedDialProperties::slotAutoDetectAbsoluteInputSourceToggled(bool checked)
-{
-    if (checked == true)
+    if (preset != NULL)
     {
-        connect(m_doc->inputOutputMap(), SIGNAL(inputValueChanged(quint32,quint32,uchar)),
-                this, SLOT(slotAbsoluteInputValueChanged(quint32,quint32)));
-    }
-    else
-    {
-        disconnect(m_doc->inputOutputMap(), SIGNAL(inputValueChanged(quint32,quint32,uchar)),
-                   this, SLOT(slotAbsoluteInputValueChanged(quint32,quint32)));
+        updatePresetInputSource(preset->m_inputSource);
+        m_presetKeyEdit->setText(preset->m_keySequence.toString(QKeySequence::NativeText));
+        m_presetNameEdit->setText(preset->m_name);
+        m_speedDialWidget->setValue(preset->m_value);
     }
 }
 
-void VCSpeedDialProperties::slotChooseAbsoluteInputSourceClicked()
+void VCSpeedDialProperties::slotPresetNameEdited(QString const& newName)
 {
-    SelectInputChannel sic(this, m_doc->inputOutputMap());
-    if (sic.exec() == QDialog::Accepted)
+    VCSpeedDialPreset* preset = getSelectedPreset();
+
+    if (preset != NULL)
     {
-        if (m_absoluteInputSource != NULL)
-            delete m_absoluteInputSource;
-        m_absoluteInputSource = new QLCInputSource(sic.universe(), sic.channel());
-        updateInputSources();
+        preset->m_name = newName;
+
+        updateTreeItem(*preset);
     }
 }
 
-void VCSpeedDialProperties::slotAutoDetectTapInputSourceToggled(bool checked)
+void VCSpeedDialProperties::slotSpeedDialWidgetValueChanged(int ms)
+{
+    VCSpeedDialPreset* preset = getSelectedPreset();
+
+    if (preset != NULL)
+    {
+        if (Function::stringToSpeed(preset->m_name) == uint(preset->m_value))
+        {
+            preset->m_name = Function::speedToString(ms);
+            m_presetNameEdit->blockSignals(true);
+            m_presetNameEdit->setText(preset->m_name);
+            m_presetNameEdit->blockSignals(false);
+        }
+        preset->m_value = ms;
+
+        updateTreeItem(*preset);
+    }
+}
+
+void VCSpeedDialProperties::slotAutoDetectPresetInputToggled(bool checked)
 {
     if (checked == true)
     {
         connect(m_doc->inputOutputMap(), SIGNAL(inputValueChanged(quint32,quint32,uchar)),
-                this, SLOT(slotTapInputValueChanged(quint32,quint32)));
+                this, SLOT(slotPresetInputValueChanged(quint32,quint32)));
     }
     else
     {
         disconnect(m_doc->inputOutputMap(), SIGNAL(inputValueChanged(quint32,quint32,uchar)),
-                   this, SLOT(slotTapInputValueChanged(quint32,quint32)));
+                   this, SLOT(slotPresetInputValueChanged(quint32,quint32)));
     }
 }
 
-void VCSpeedDialProperties::slotChooseTapInputSourceClicked()
+void VCSpeedDialProperties::slotPresetInputValueChanged(quint32 universe, quint32 channel)
 {
-    SelectInputChannel sic(this, m_doc->inputOutputMap());
-    if (sic.exec() == QDialog::Accepted)
+    VCSpeedDialPreset *preset = getSelectedPreset();
+
+    if (preset != NULL)
     {
-        if (m_tapInputSource != NULL)
-            delete m_tapInputSource;
-        m_tapInputSource = new QLCInputSource(sic.universe(), sic.channel());
-        updateInputSources();
+        preset->m_inputSource = QSharedPointer<QLCInputSource>(new QLCInputSource(universe, (m_dial->page() << 16) | channel));
+        updatePresetInputSource(preset->m_inputSource);
     }
 }
 
-void VCSpeedDialProperties::slotAttachKey()
+void VCSpeedDialProperties::slotChoosePresetInputClicked()
 {
-    AssignHotKey ahk(this, m_tapKeySequence);
-    if (ahk.exec() == QDialog::Accepted)
+    VCSpeedDialPreset *preset = getSelectedPreset();
+
+    if (preset != NULL)
     {
-        m_tapKeySequence = QKeySequence(ahk.keySequence());
-        m_keyEdit->setText(m_tapKeySequence.toString(QKeySequence::NativeText));
+        SelectInputChannel sic(this, m_doc->inputOutputMap());
+        if (sic.exec() == QDialog::Accepted)
+        {
+            preset->m_inputSource = QSharedPointer<QLCInputSource>(new QLCInputSource(sic.universe(), sic.channel()));
+            updatePresetInputSource(preset->m_inputSource);
+        }
     }
 }
 
-void VCSpeedDialProperties::slotDetachKey()
+void VCSpeedDialProperties::slotAttachPresetKey()
 {
-    m_tapKeySequence = QKeySequence();
-    m_keyEdit->setText(m_tapKeySequence.toString(QKeySequence::NativeText));
+    VCSpeedDialPreset *preset = getSelectedPreset();
+
+    if (preset != NULL)
+    {
+        AssignHotKey ahk(this, preset->m_keySequence);
+        if (ahk.exec() == QDialog::Accepted)
+        {
+            preset->m_keySequence = QKeySequence(ahk.keySequence());
+            m_presetKeyEdit->setText(preset->m_keySequence.toString(QKeySequence::NativeText));
+        }
+    }
+}
+
+void VCSpeedDialProperties::slotDetachPresetKey()
+{
+    VCSpeedDialPreset *preset = getSelectedPreset();
+
+    if (preset != NULL)
+    {
+        preset->m_keySequence = QKeySequence();
+        m_presetKeyEdit->setText(preset->m_keySequence.toString(QKeySequence::NativeText));
+    }
 }

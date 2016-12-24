@@ -1,5 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
+ <author>Massimo Callegari</author>
+ <comment>
+  Q Light Controller Plus
+  editmode.ui
+
+  Copyright (c) 2015 Massimo Callegari
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0.txt
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+ </comment>
  <class>EditMode</class>
  <widget class="QDialog" name="EditMode">
   <property name="geometry">
@@ -399,27 +418,27 @@
             </item>
             <item>
              <property name="text">
-              <string>HMI 150W</string>
+              <string notr="true">HMI 150W</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>HMI 250W</string>
+              <string notr="true">HMI 250W</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>HMI 400W</string>
+              <string notr="true">HMI 400W</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>HMI 575W</string>
+              <string notr="true">HMI 575W</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>HMI 700W</string>
+              <string notr="true">HMI 700W</string>
              </property>
             </item>
             <item>
@@ -434,22 +453,22 @@
             </item>
             <item>
              <property name="text">
-              <string>HSD 150W</string>
+              <string notr="true">HSD 150W</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>HSD 200W</string>
+              <string notr="true">HSD 200W</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>HSD 250W</string>
+              <string notr="true">HSD 250W</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>HSD 575W</string>
+              <string notr="true">HSD 575W</string>
              </property>
             </item>
             <item>
@@ -514,12 +533,17 @@
             </item>
             <item>
              <property name="text">
+              <string notr="true">MSD Platinum 15 R 300W</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
               <string notr="true">MSD 575W</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>MSR 575W</string>
+              <string notr="true">MSR 575W</string>
              </property>
             </item>
             <item>
@@ -571,77 +595,77 @@
             </property>
             <item>
              <property name="text">
-              <string>2000</string>
+              <string notr="true">2000</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>2800</string>
+              <string notr="true">2800</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>3200</string>
+              <string notr="true">3200</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>4000</string>
+              <string notr="true">4000</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>4500</string>
+              <string notr="true">4500</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>5000</string>
+              <string notr="true">5000</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>5500</string>
+              <string notr="true">5500</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>6000</string>
+              <string notr="true">6000</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>6500</string>
+              <string notr="true">6500</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>7000</string>
+              <string notr="true">7000</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>7200</string>
+              <string notr="true">7200</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>8000</string>
+              <string notr="true">8000</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>8300</string>
+              <string notr="true">8300</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>9000</string>
+              <string notr="true">9000</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>9300</string>
+              <string notr="true">9300</string>
              </property>
             </item>
            </widget>
@@ -1015,6 +1039,39 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>m_modeNameEdit</tabstop>
+  <tabstop>m_tab</tabstop>
+  <tabstop>m_buttonBox</tabstop>
+  <tabstop>m_channelList</tabstop>
+  <tabstop>m_addChannelButton</tabstop>
+  <tabstop>m_removeChannelButton</tabstop>
+  <tabstop>m_raiseChannelButton</tabstop>
+  <tabstop>m_lowerChannelButton</tabstop>
+  <tabstop>m_headList</tabstop>
+  <tabstop>m_addHeadButton</tabstop>
+  <tabstop>m_removeHeadButton</tabstop>
+  <tabstop>m_editHeadButton</tabstop>
+  <tabstop>m_raiseHeadButton</tabstop>
+  <tabstop>m_lowerHeadButton</tabstop>
+  <tabstop>m_bulbTypeCombo</tabstop>
+  <tabstop>m_bulbLumensSpin</tabstop>
+  <tabstop>m_bulbTempCombo</tabstop>
+  <tabstop>m_weightSpin</tabstop>
+  <tabstop>m_widthSpin</tabstop>
+  <tabstop>m_heightSpin</tabstop>
+  <tabstop>m_depthSpin</tabstop>
+  <tabstop>m_lensNameCombo</tabstop>
+  <tabstop>m_lensDegreesMinSpin</tabstop>
+  <tabstop>m_lensDegreesMaxSpin</tabstop>
+  <tabstop>m_focusTypeCombo</tabstop>
+  <tabstop>m_panMaxSpin</tabstop>
+  <tabstop>m_tiltMaxSpin</tabstop>
+  <tabstop>m_powerConsumptionSpin</tabstop>
+  <tabstop>m_dmxConnectorCombo</tabstop>
+  <tabstop>copyClipboardButton</tabstop>
+  <tabstop>pasteClipboardButton</tabstop>
+ </tabstops>
  <resources>
   <include location="../ui/src/qlcui.qrc"/>
   <include location="../ui/src/qlcui.qrc"/>

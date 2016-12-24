@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE FixtureDefinition>
-<FixtureDefinition xmlns="http://qlcplus.sourceforge.net/FixtureDefinition">
+<FixtureDefinition xmlns="http://www.qlcplus.org/FixtureDefinition">
  <Creator>
   <Name>Q Light Controller Plus</Name>
   <Version>4.7.0</Version>
@@ -30,7 +30,7 @@
   <Capability Min="248" Max="255">Silent Move</Capability>
  </Channel>
  <Channel Name="Pan FAR">
-  <Group Byte="0">Pan</Group>
+  <Group Byte="0">Maintenance</Group>
   <Capability Min="0" Max="10">Standard</Capability>
   <Capability Min="11" Max="20">1 turn</Capability>
   <Capability Min="21" Max="30">2 turns</Capability>
@@ -199,7 +199,7 @@
   <Capability Min="138" Max="255">Right Rotation</Capability>
  </Channel>
  <Channel Name="Gobo Index Fine">
-  <Group Byte="0">Gobo</Group>
+  <Group Byte="1">Gobo</Group>
  </Channel>
  <Channel Name="Gobo Shake">
   <Group Byte="0">Gobo</Group>
@@ -309,7 +309,7 @@
   <Group Byte="0">Beam</Group>
  </Channel>
  <Channel Name="Focus Fine">
-  <Group Byte="0">Beam</Group>
+  <Group Byte="1">Beam</Group>
  </Channel>
  <Channel Name="Zoom">
   <Group Byte="0">Beam</Group>

@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   vcslider.h
 
   Copyright (c) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -29,8 +30,8 @@
 #include "dmxsource.h"
 #include "vcwidget.h"
 
-class QDomDocument;
-class QDomElement;
+class QXmlStreamReader;
+class QXmlStreamWriter;
 class QToolButton;
 class QHBoxLayout;
 class QLabel;
@@ -217,7 +218,7 @@ public:
         /** Sorting operator */
         bool operator<(const LevelChannel& lc) const;
         /** Save the contents of a LevelChannel instance to an XML document */
-        void saveXML(QDomDocument* doc, QDomElement* root) const;
+        void saveXML(QXmlStreamWriter *doc) const;
 
     public:
         /** The associated fixture ID */
@@ -293,7 +294,7 @@ public:
     /**
      * Return the current status of the channels monitor
      */
-    bool channelsMonitorEnabled();
+    bool channelsMonitorEnabled() const;
 
 protected:
     /**
@@ -308,6 +309,12 @@ protected:
      * Get the current "level" mode value
      */
     uchar levelValue() const;
+
+public:
+    /**
+     * Send submasterValueChanged signal
+     */
+    void emitSubmasterValue();
 
 signals:
     void monitorDMXValueChanged(int value);
@@ -367,7 +374,7 @@ public:
     uchar playbackValue() const;
 
     /** @reimp */
-    virtual void notifyFunctionStarting(quint32 fid);
+    virtual void notifyFunctionStarting(quint32 fid, qreal intensity);
 
 protected slots:
     void slotPlaybackFunctionRunning(quint32 fid);
@@ -380,12 +387,12 @@ protected:
     bool m_playbackValueChanged;
     QMutex m_playbackValueMutex;
 
+private:
+    FunctionParent functionParent() const;
+
     /*********************************************************************
      * Submaster
      *********************************************************************/
-protected:
-    qreal m_submasterValue;
-
 signals:
     void submasterValueChanged(qreal value);
 
@@ -535,11 +542,11 @@ signals:
      * Load & Save
      *********************************************************************/
 public:
-    bool loadXML(const QDomElement* root);
-    bool loadXMLLevel(const QDomElement* level_root);
-    bool loadXMLPlayback(const QDomElement* pb_root);
+    bool loadXML(QXmlStreamReader &root);
+    bool loadXMLLevel(QXmlStreamReader &level_root);
+    bool loadXMLPlayback(QXmlStreamReader &pb_root);
 
-    bool saveXML(QDomDocument* doc, QDomElement* vc_root);
+    bool saveXML(QXmlStreamWriter *doc);
 };
 
 /** @} */

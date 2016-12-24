@@ -11,9 +11,13 @@ INCLUDEPATH += $SYSROOT/usr/include
 CONFIG      += plugin
 
 # Rules to make SPI devices readable & writable by normal users
-udev.path  = /etc/udev/rules.d
+udev.path  = $$UDEVRULESDIR
 udev.files = z65-spi.rules
 INSTALLS  += udev
+
+metainfo.path   = $$INSTALLROOT/share/appdata/
+metainfo.files += qlcplus-spi.metainfo.xml
+INSTALLS       += metainfo
 
 target.path = $$INSTALLROOT/$$PLUGINDIR
 INSTALLS   += target
@@ -30,9 +34,14 @@ TRANSLATIONS += SPI_ca_ES.ts
 TRANSLATIONS += SPI_ja_JP.ts
 TRANSLATIONS += SPI_zh_CN.ts
 
-HEADERS += spiplugin.h spiconfiguration.h \
-    spioutthread.h
-SOURCES += spiplugin.cpp spiconfiguration.cpp \
-    spioutthread.cpp
-FORMS += spiconfiguration.ui
 HEADERS += ../interfaces/qlcioplugin.h
+HEADERS += spiplugin.h \
+           spiconfiguration.h \
+           spioutthread.h
+
+SOURCES += ../interfaces/qlcioplugin.cpp
+SOURCES += spiplugin.cpp \
+           spiconfiguration.cpp \
+           spioutthread.cpp
+
+FORMS += spiconfiguration.ui

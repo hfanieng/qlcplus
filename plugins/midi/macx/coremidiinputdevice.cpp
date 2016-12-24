@@ -61,6 +61,10 @@ static void MidiInProc(const MIDIPacketList* pktList, void* readProcRefCon,
                 data1 = packet->data[++i];
                 if (packet->length > (i + 1) && !MIDI_IS_CMD(packet->data[i + 1]))
                     data2 = packet->data[++i];
+                else
+                    // no data2 ? Could be a Program Change, so act like Linux
+                    // and give it a value
+                    data2 = 127;
             }
 
             if (cmd >= MIDI_BEAT_CLOCK && cmd <= MIDI_BEAT_STOP)
@@ -92,15 +96,13 @@ static void MidiInProc(const MIDIPacketList* pktList, void* readProcRefCon,
  ****************************************************************************/
 
 CoreMidiInputDevice::CoreMidiInputDevice(const QVariant& uid, const QString& name,
-                                         MIDIEntityRef entity, MIDIClientRef client,
+                                         MIDIEndpointRef source, MIDIClientRef client,
                                          QObject* parent)
     : MidiInputDevice(uid, name, parent)
     , m_client(client)
-    , m_entity(entity)
     , m_inPort(0)
-    , m_source(0)
+    , m_source(source)
 {
-    qDebug() << Q_FUNC_INFO;
 }
 
 CoreMidiInputDevice::~CoreMidiInputDevice()
@@ -128,8 +130,7 @@ bool CoreMidiInputDevice::open()
     }
     else
     {
-        // Connect the input port to the first source
-        m_source = MIDIEntityGetSource(m_entity, 0);
+        // Connect the input port to the source
         s = MIDIPortConnectSource(m_inPort, m_source, this);
         if (s != 0)
         {
@@ -178,6 +179,10 @@ bool CoreMidiInputDevice::processMBC(int type)
     if (type == MIDI_BEAT_START || type == MIDI_BEAT_STOP)
     {
         m_mbc_counter = 1;
+        return true;
+    }
+    else if (type == MIDI_BEAT_CONTINUE)
+    {
         return true;
     }
     else if (type == MIDI_BEAT_CLOCK)

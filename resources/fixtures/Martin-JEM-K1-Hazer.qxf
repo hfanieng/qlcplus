@@ -1,6 +1,6 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE FixtureDefinition>
-<FixtureDefinition xmlns="http://qlcplus.sourceforge.net/FixtureDefinition">
+<FixtureDefinition xmlns="http://www.qlcplus.org/FixtureDefinition">
  <Creator>
   <Name>Q Light Controller Plus</Name>
   <Version>4.8.2</Version>
@@ -11,7 +11,7 @@
  <Type>Smoke</Type>
  <Channel Name="Haze Density">
   <Group Byte="0">Intensity</Group>
-  <Capability Min="0" Max="19">Stanby</Capability>
+  <Capability Min="0" Max="19">Standby</Capability>
   <Capability Min="20" Max="219">Proportional output level control</Capability>
   <Capability Min="220" Max="255">Prime</Capability>
  </Channel>

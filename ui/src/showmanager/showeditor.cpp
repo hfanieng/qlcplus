@@ -157,14 +157,12 @@ void ShowEditor::updateFunctionList()
                 fItem->setText(STEPS_COL, QString("%1").arg(chaser->steps().count()));
             }
             else
-                fItem->setIcon(NAME_COL, Function::typeToIcon(func->type()));
+                fItem->setIcon(NAME_COL, func->getIcon());
         }
     }
 
     masterItem->setText(DUR_COL, Function::speedToString(totalDuration));
 
     m_tree->expandAll();
-    m_tree->resizeColumnToContents(NAME_COL);
-    m_tree->resizeColumnToContents(TIME_COL);
-    m_tree->resizeColumnToContents(DUR_COL);
+    m_tree->header()->resizeSections(QHeaderView::ResizeToContents);
 }

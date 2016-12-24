@@ -20,6 +20,7 @@
 #ifndef INPUTOUTPUTMAP_H
 #define INPUTOUTPUTMAP_H
 
+#include <QSharedPointer>
 #include <QObject>
 #include <QMutex>
 #include <QDir>
@@ -27,7 +28,10 @@
 #include "qlcinputprofile.h"
 #include "grandmaster.h"
 
+class QXmlStreamReader;
+class QXmlStreamWriter;
 class QLCInputSource;
+class QElapsedTimer;
 class QLCIOPlugin;
 class OutputPatch;
 class InputPatch;
@@ -58,7 +62,7 @@ public:
      * @param doc The QLC+ project reference
      * @param universes Number of universes
      */
-    InputOutputMap(Doc* doc, quint32 universes);
+    InputOutputMap(Doc* doc, quint32 universesCount);
 
     /**
      * Destroy a InputOutputMap object
@@ -204,9 +208,14 @@ public:
     bool isUniversePatched(int index);
 
     /**
-     * Retrieve the number of universe in the output map
+     * Retrieve the number of universes in the input/output map
      */
-    quint32 universes() const;
+    quint32 universesCount() const;
+
+    /**
+     * Retrieve the list of references of the Universe in the input/output map
+     */
+    QList<Universe*> universes() const;
 
     /**
      * Claim access to a universe. This is declared virtual to make
@@ -236,12 +245,9 @@ public:
 signals:
     void universeAdded(quint32 id);
     void universeRemoved(quint32 id);
-    void universesWritten(int index, const QByteArray& universes);
+    void universesWritten(int index, const QByteArray& universesCount);
 
 private:
-    /** Keep track of the lastest asigned universe ID */
-    quint32 m_latestUniverseId;
-
     /** The values of all universes */
     QList<Universe *> m_universeArray;
 
@@ -298,6 +304,8 @@ private:
      *********************************************************************/
 
 public:
+    void flushInputs();
+
     /**
      * Patch the given universe to go through the given input plugin
      *
@@ -311,16 +319,30 @@ public:
                        quint32 input, const QString& profileName = QString());
 
     /**
+     * Set an input profile to the given universe. If the universe doesn't
+     * have an input patch, this method returns false
+     *
+     * @param universe The universe to patch
+     * @param profileName the name of the input profile to set
+     * @return true if successful, otherwise false
+     */
+    bool setInputProfile(quint32 universe, const QString& profileName);
+
+    /**
      * Patch the given universe to go through the given output plugin
      *
      * @param universe The universe to patch
      * @param pluginName The name of the plugin to patch to the universe
      * @param output A universe provided by the plugin to patch to
      * @param isFeedback Determine if this line is a feedback output
+     * @param index the output patch index
+     *
      * @return true if successful, otherwise false
      */
     bool setOutputPatch(quint32 universe, const QString& pluginName,
-                        quint32 output = 0, bool isFeedback = false);
+                        quint32 output = 0, bool isFeedback = false, int index = 0);
+
+    int outputPatchesCount(quint32 universe) const;
 
     /**
      * Get mapping for an input universe.
@@ -334,7 +356,7 @@ public:
      *
      * @param universe The internal universe to get mapping for
      */
-    OutputPatch* outputPatch(quint32 universe) const;
+    OutputPatch* outputPatch(quint32 universe, int index = 0) const;
 
     /**
      * Get the feedback mapping for a QLC universe.
@@ -502,6 +524,8 @@ public:
      */
     bool inputSourceNames(const QLCInputSource *src,
                           QString& uniName, QString& chName) const;
+    bool inputSourceNames(QSharedPointer<QLCInputSource> const& src,
+                          QString& uniName, QString& chName) const;
 
     /**
      * Get the default system input profile directory that contains installed
@@ -524,6 +548,39 @@ private:
     QList <QLCInputProfile*> m_profiles;
 
     /*********************************************************************
+     * Beats
+     *********************************************************************/
+public:
+    enum BeatGeneratorType
+    {
+        Disabled,   //! No one is generating beats
+        Internal,   //! MasterTimer is the beat generator
+        MIDI,       //! A MIDI plugin is the beat generator
+        Audio       //! An audio input device is the beat generator
+    };
+
+    void setBeatGeneratorType(BeatGeneratorType type);
+    BeatGeneratorType beatGeneratorType() const;
+
+    void setBpmNumber(int bpm);
+    int bpmNumber() const;
+
+protected slots:
+    void slotMasterTimerBeat();
+    void slotMIDIBeat(quint32 universe, quint32 channel, uchar value);
+    void slotAudioSpectrum(double *spectrumBands, int size, double maxMagnitude, quint32 power);
+
+signals:
+    void beatGeneratorTypeChanged();
+    void bpmNumberChanged(int bpmNumber);
+    void beat();
+
+private:
+    BeatGeneratorType m_beatGeneratorType;
+    int m_currentBPM;
+    QElapsedTimer *m_beatTime;
+
+    /*********************************************************************
      * Defaults
      *********************************************************************/
 public:
@@ -537,13 +594,17 @@ public:
      */
     void saveDefaults();
 
+    /*********************************************************************
+     * Load & Save
+     *********************************************************************/
+public:
     /**
      * Load the input/output map contents from the given XML node.
      *
      * @param root An XML subtree containing the input/output map contents
      * @return true if the map was loaded successfully, otherwise false
      */
-    bool loadXML(const QDomElement& root);
+    bool loadXML(QXmlStreamReader &root);
 
     /**
      * Save the input/output map instance into an XML document, under the given
@@ -552,7 +613,7 @@ public:
      * @param doc The master XML document to save to.
      * @param wksp_root The workspace root element
      */
-    bool saveXML(QDomDocument* doc, QDomElement* wksp_root) const;
+    bool saveXML(QXmlStreamWriter *doc) const;
 
 };
 

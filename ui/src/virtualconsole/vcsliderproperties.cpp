@@ -29,16 +29,12 @@
 #include <QSpinBox>
 #include <QLabel>
 
-#include "qlcinputprofile.h"
-#include "qlcinputchannel.h"
 #include "qlccapability.h"
 #include "qlcchannel.h"
 
+#include "inputselectionwidget.h"
 #include "vcsliderproperties.h"
-#include "selectinputchannel.h"
 #include "functionselection.h"
-#include "mastertimer.h"
-#include "inputpatch.h"
 #include "vcslider.h"
 #include "fixture.h"
 #include "doc.h"
@@ -145,13 +141,13 @@ VCSliderProperties::VCSliderProperties(VCSlider* slider, Doc* doc)
     /********************************************************************
      * External input
      ********************************************************************/
-    m_inputSource = m_slider->inputSource();
-    updateInputSource();
 
-    connect(m_autoDetectInputButton, SIGNAL(toggled(bool)),
-            this, SLOT(slotAutoDetectInputToggled(bool)));
-    connect(m_chooseInputButton, SIGNAL(clicked()),
-            this, SLOT(slotChooseInputClicked()));
+    m_inputSelWidget = new InputSelectionWidget(m_doc, this);
+    m_inputSelWidget->setKeyInputVisibility(false);
+    m_inputSelWidget->setInputSource(m_slider->inputSource());
+    m_inputSelWidget->setWidgetPage(m_slider->page());
+    m_inputSelWidget->show();
+    m_extControlLayout->addWidget(m_inputSelWidget);
 
     /*********************************************************************
      * Level page
@@ -179,8 +175,6 @@ VCSliderProperties::VCSliderProperties(VCSlider* slider, Doc* doc)
     /* Function */
     m_playbackFunctionId = m_slider->playbackFunction();
     updatePlaybackFunctionName();
-
-
 }
 
 VCSliderProperties::~VCSliderProperties()
@@ -213,6 +207,8 @@ void VCSliderProperties::slotModeLevelClicked()
         case ClickAndGoWidget::Amber:
         case ClickAndGoWidget::White:
         case ClickAndGoWidget::UV:
+        case ClickAndGoWidget::Lime:
+        case ClickAndGoWidget::Indigo:
             m_cngColorCheck->setChecked(true);
         break;
         case ClickAndGoWidget::RGB:
@@ -250,55 +246,6 @@ void VCSliderProperties::slotModeSubmasterClicked()
     setLevelPageVisibility(false);
     setPlaybackPageVisibility(false);
     setSubmasterPageVisibility(true);
-}
-
-void VCSliderProperties::slotAutoDetectInputToggled(bool checked)
-{
-    if (checked == true)
-    {
-        connect(m_doc->inputOutputMap(), SIGNAL(inputValueChanged(quint32,quint32,uchar)),
-                this, SLOT(slotInputValueChanged(quint32,quint32)));
-    }
-    else
-    {
-        disconnect(m_doc->inputOutputMap(), SIGNAL(inputValueChanged(quint32,quint32,uchar)),
-                   this, SLOT(slotInputValueChanged(quint32,quint32)));
-    }
-}
-
-void VCSliderProperties::slotInputValueChanged(quint32 universe, quint32 channel)
-{
-    if (m_inputSource != NULL)
-        delete m_inputSource;
-    m_inputSource = new QLCInputSource(universe, (m_slider->page() << 16) | channel);
-    updateInputSource();
-}
-
-void VCSliderProperties::slotChooseInputClicked()
-{
-    SelectInputChannel sic(this, m_doc->inputOutputMap());
-    if (sic.exec() == QDialog::Accepted)
-    {
-        if (m_inputSource != NULL)
-            delete m_inputSource;
-        m_inputSource = new QLCInputSource(sic.universe(), sic.channel());
-        updateInputSource();
-    }
-}
-
-void VCSliderProperties::updateInputSource()
-{
-    QString uniName;
-    QString chName;
-
-    if (m_doc->inputOutputMap()->inputSourceNames(m_inputSource, uniName, chName) == false)
-    {
-        uniName = KInputNone;
-        chName = KInputNone;
-    }
-
-    m_inputUniverseEdit->setText(uniName);
-    m_inputChannelEdit->setText(chName);
 }
 
 void VCSliderProperties::setLevelPageVisibility(bool visible)
@@ -367,8 +314,7 @@ void VCSliderProperties::levelUpdateFixtures()
         Q_ASSERT(fixture != NULL);
         levelUpdateFixtureNode(fixture->id());
     }
-    m_levelList->resizeColumnToContents(KColumnName);
-    m_levelList->resizeColumnToContents(KColumnType);
+    m_levelList->header()->resizeSections(QHeaderView::ResizeToContents);
 }
 
 void VCSliderProperties::levelUpdateFixtureNode(quint32 id)
@@ -693,8 +639,7 @@ void VCSliderProperties::slotLevelByGroupClicked()
 
 void VCSliderProperties::slotItemExpanded()
 {
-    m_levelList->resizeColumnToContents(KColumnName);
-    m_levelList->resizeColumnToContents(KColumnType);
+    m_levelList->header()->resizeSections(QHeaderView::ResizeToContents);
 }
 
 /*****************************************************************************
@@ -706,10 +651,12 @@ void VCSliderProperties::slotAttachPlaybackFunctionClicked()
     FunctionSelection fs(this, m_doc);
     fs.setMultiSelection(false);
     fs.setFilter(Function::Scene | Function::Chaser | Function::EFX | Function::Audio | Function::RGBMatrix
+                 | Function::Collection
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
                  | Function::Video
 #endif
-                 , true);
+                 , false);
+    fs.disableFilters(Function::Script | Function::Show);
 
     if (fs.exec() != QDialog::Accepted)
         return;
@@ -759,7 +706,7 @@ void VCSliderProperties::checkMajorColor(int *comp, int *max, int type)
 void VCSliderProperties::storeLevelChannels()
 {
     int red = 0, green = 0, blue = 0;
-    int cyan = 0, magenta = 0, yellow = 0, amber = 0, white = 0, uv = 0;
+    int cyan = 0, magenta = 0, yellow = 0, amber = 0, white = 0, uv = 0, lime = 0, indigo = 0;
     int majorColor = 0;
     /* Clear all channels from the slider first */
     m_slider->clearLevelChannels();
@@ -831,6 +778,16 @@ void VCSliderProperties::storeLevelChannels()
                         {
                             uv++;
                             checkMajorColor(&uv, &majorColor, ClickAndGoWidget::UV);
+                        }
+                        else if (ch->colour() == QLCChannel::Lime)
+                        {
+                            lime++;
+                            checkMajorColor(&lime, &majorColor, ClickAndGoWidget::Lime);
+                        }
+                        else if (ch->colour() == QLCChannel::Indigo)
+                        {
+                            indigo++;
+                            checkMajorColor(&indigo, &majorColor, ClickAndGoWidget::Indigo);
                         }
                     }
                 }
@@ -905,7 +862,7 @@ void VCSliderProperties::accept()
         m_slider->setInvertedAppearance(true);
 
     /* External input */
-    m_slider->setInputSource(m_inputSource);
+    m_slider->setInputSource(m_inputSelWidget->inputSource());
 
     /* Close dialog */
     QDialog::accept();

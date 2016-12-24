@@ -17,9 +17,9 @@
   limitations under the License.
 */
 
+#include <QXmlStreamReader>
+#include <QXmlStreamWriter>
 #include <QMediaPlayer>
-#include <QDomDocument>
-#include <QDomElement>
 #include <QDebug>
 #include <QFile>
 
@@ -50,6 +50,7 @@ Video::Video(Doc* doc)
   , m_fullscreen(false)
 {
     setName(tr("New Video"));
+    setRunOrder(Video::SingleShot);
 
     // Listen to member Function removals
     connect(doc, SIGNAL(functionRemoved(quint32)),
@@ -58,6 +59,11 @@ Video::Video(Doc* doc)
 
 Video::~Video()
 {
+}
+
+QIcon Video::getIcon() const
+{
+    return QIcon(":/video.png");
 }
 
 /*****************************************************************************
@@ -137,15 +143,15 @@ quint32 Video::getStartTime() const
     return m_startTime;
 }
 
-void Video::setTotalDuration(qint64 duration)
+void Video::setTotalDuration(quint32 duration)
 {
-    m_videoDuration = duration;
+    m_videoDuration = (qint64)duration;
     emit totalTimeChanged(m_videoDuration);
 }
 
-qint64 Video::totalDuration()
+quint32 Video::totalDuration()
 {
-    return m_videoDuration;
+    return (quint32)m_videoDuration;
 }
 
 void Video::setResolution(QSize size)
@@ -232,6 +238,7 @@ QString Video::sourceUrl()
 void Video::setScreen(int index)
 {
     m_screen = index;
+    emit changed(id());
 }
 
 int Video::screen()
@@ -242,6 +249,7 @@ int Video::screen()
 void Video::setFullscreen(bool enable)
 {
     m_fullscreen = enable;
+    emit changed(id());
 }
 
 bool Video::fullscreen()
@@ -268,88 +276,100 @@ void Video::slotFunctionRemoved(quint32 fid)
  * Save & Load
  *********************************************************************/
 
-bool Video::saveXML(QDomDocument* doc, QDomElement* wksp_root)
+bool Video::saveXML(QXmlStreamWriter *doc)
 {
-    QDomElement root;
-    QDomText text;
-
     Q_ASSERT(doc != NULL);
-    Q_ASSERT(wksp_root != NULL);
 
     /* Function tag */
-    root = doc->createElement(KXMLQLCFunction);
-    wksp_root->appendChild(root);
+    doc->writeStartElement(KXMLQLCFunction);
 
     /* Common attributes */
-    saveXMLCommon(&root);
+    saveXMLCommon(doc);
 
     /* Speed */
-    saveXMLSpeed(doc, &root);
+    saveXMLSpeed(doc);
 
-    QDomElement source = doc->createElement(KXMLQLCVideoSource);
+    /* Playback mode */
+    saveXMLRunOrder(doc);
+
+    doc->writeStartElement(KXMLQLCVideoSource);
     if (m_screen > 0)
-        source.setAttribute(KXMLQLCVideoScreen, m_screen);
+        doc->writeAttribute(KXMLQLCVideoScreen, QString::number(m_screen));
     if (m_fullscreen == true)
-        source.setAttribute(KXMLQLCVideoFullscreen, true);
+        doc->writeAttribute(KXMLQLCVideoFullscreen, "1");
 
     if (m_sourceUrl.contains("://"))
-        text = doc->createTextNode(m_sourceUrl);
+        doc->writeCharacters(m_sourceUrl);
     else
-        text = doc->createTextNode(m_doc->normalizeComponentPath(m_sourceUrl));
+        doc->writeCharacters(m_doc->normalizeComponentPath(m_sourceUrl));
 
-    source.appendChild(text);
-    root.appendChild(source);
+    doc->writeEndElement();
+
+    /* End the <Function> tag */
+    doc->writeEndElement();
 
     return true;
 }
 
-bool Video::loadXML(const QDomElement& root)
+bool Video::loadXML(QXmlStreamReader &root)
 {
-    if (root.tagName() != KXMLQLCFunction)
+    if (root.name() != KXMLQLCFunction)
     {
         qWarning() << Q_FUNC_INFO << "Function node not found";
         return false;
     }
 
-    if (root.attribute(KXMLQLCFunctionType) != typeToString(Function::Video))
+    if (root.attributes().value(KXMLQLCFunctionType).toString() != typeToString(Function::Video))
     {
-        qWarning() << Q_FUNC_INFO << root.attribute(KXMLQLCFunctionType)
+        qWarning() << Q_FUNC_INFO << root.attributes().value(KXMLQLCFunctionType).toString()
                    << "is not Video";
         return false;
     }
 
-    QDomNode node = root.firstChild();
-    while (node.isNull() == false)
+    QString fname = name();
+
+    while (root.readNextStartElement())
     {
-        QDomElement tag = node.toElement();
-        if (tag.tagName() == KXMLQLCVideoSource)
+        if (root.name() == KXMLQLCVideoSource)
         {
-            if (tag.hasAttribute(KXMLQLCVideoStartTime))
-                setStartTime(tag.attribute(KXMLQLCVideoStartTime).toUInt());
-            if (tag.hasAttribute(KXMLQLCVideoColor))
-                setColor(QColor(tag.attribute(KXMLQLCVideoColor)));
-            if (tag.hasAttribute(KXMLQLCVideoLocked))
+            QXmlStreamAttributes attrs = root.attributes();
+            if (attrs.hasAttribute(KXMLQLCVideoStartTime))
+                setStartTime(attrs.value(KXMLQLCVideoStartTime).toString().toUInt());
+            if (attrs.hasAttribute(KXMLQLCVideoColor))
+                setColor(QColor(attrs.value(KXMLQLCVideoColor).toString()));
+            if (attrs.hasAttribute(KXMLQLCVideoLocked))
                 setLocked(true);
-            if (tag.hasAttribute(KXMLQLCVideoScreen))
-                setScreen(tag.attribute(KXMLQLCVideoScreen).toInt());
-            if (tag.hasAttribute(KXMLQLCVideoFullscreen))
+            if (attrs.hasAttribute(KXMLQLCVideoScreen))
+                setScreen(attrs.value(KXMLQLCVideoScreen).toString().toInt());
+            if (attrs.hasAttribute(KXMLQLCVideoFullscreen))
             {
-                if (tag.attribute(KXMLQLCVideoFullscreen) == "1")
+                if (attrs.value(KXMLQLCVideoFullscreen).toString() == "1")
                     setFullscreen(true);
                 else
                     setFullscreen(false);
             }
-            if (tag.text().contains("://") == true)
-                setSourceUrl(tag.text());
+            QString path = root.readElementText();
+            if (path.contains("://") == true)
+                setSourceUrl(path);
             else
-                setSourceUrl(m_doc->denormalizeComponentPath(tag.text()));
+                setSourceUrl(m_doc->denormalizeComponentPath(path));
         }
-        else if (tag.tagName() == KXMLQLCFunctionSpeed)
+        else if (root.name() == KXMLQLCFunctionSpeed)
         {
-            loadXMLSpeed(tag);
+            loadXMLSpeed(root);
         }
-        node = node.nextSibling();
+        else if (root.name() == KXMLQLCFunctionRunOrder)
+        {
+            loadXMLRunOrder(root);
+        }
+        else
+        {
+            qWarning() << Q_FUNC_INFO << "Unknown Video tag:" << root.name();
+            root.skipCurrentElement();
+        }
     }
+
+    setName(fname);
 
     return true;
 }
@@ -365,6 +385,15 @@ void Video::preRun(MasterTimer* timer)
 {
     emit requestPlayback();
     Function::preRun(timer);
+}
+
+void Video::setPause(bool enable)
+{
+    if (isRunning())
+    {
+        emit requestPause(enable);
+        Function::setPause(enable);
+    }
 }
 
 void Video::write(MasterTimer* timer, QList<Universe *> universes)

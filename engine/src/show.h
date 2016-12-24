@@ -27,7 +27,7 @@
 #include "function.h"
 #include "track.h"
 
-class QDomDocument;
+class QXmlStreamReader;
 class ShowRunner;
 
 /** @addtogroup engine_functions Functions
@@ -46,11 +46,17 @@ public:
     Show(Doc* doc);
     virtual ~Show();
 
+    /** @reimp */
+    QIcon getIcon() const;
+
+    /** @reimp */
+    quint32 totalDuration();
+
     /*********************************************************************
      * Copying
      *********************************************************************/
 public:
-    /** @reimpl */
+    /** @reimp */
     Function* createCopy(Doc* doc, bool addToDoc = true);
 
     /** Copy the contents for this function from another function */
@@ -122,13 +128,17 @@ protected:
      *********************************************************************/
 public:
     /** Save function's contents to an XML document */
-    bool saveXML(QDomDocument* doc, QDomElement* wksp_root);
+    bool saveXML(QXmlStreamWriter *doc);
 
     /** Load function's contents from an XML document */
-    bool loadXML(const QDomElement& root);
+    bool loadXML(QXmlStreamReader &root);
 
     /** @reimp */
     void postLoad();
+
+public:
+    /** @reimpl */
+    virtual bool contains(quint32 functionId);
 
     /*********************************************************************
      * Running
@@ -136,6 +146,9 @@ public:
 public:
     /** @reimpl */
     void preRun(MasterTimer* timer);
+
+    /** @reimpl */
+    void setPause(bool enable);
 
     /** @reimpl */
     void write(MasterTimer* timer, QList<Universe*> universes);

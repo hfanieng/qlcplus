@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   vcframe.h
 
   Copyright (c) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -43,10 +44,11 @@
 #define KXMLQLCVCFrameMultipage   "Multipage"
 #define KXMLQLCVCFramePagesNumber "PagesNum"
 #define KXMLQLCVCFrameCurrentPage "CurrentPage"
-#define KXMLQLCVCFrameKey         "Key"
 #define KXMLQLCVCFrameNext        "Next"
 #define KXMLQLCVCFramePrevious    "Previous"
 #define KXMLQLCVCFramePagesLoop   "PagesLoop"
+
+class VCFrameProperties;
 
 class VCFrame : public VCWidget
 {
@@ -108,6 +110,8 @@ public:
     bool isEnableButtonVisible() const;
 
     bool isCollapsed() const;
+
+    QSize originalSize() const;
 
 protected slots:
     void slotCollapseButtonToggled(bool toggle);
@@ -185,6 +189,9 @@ protected slots:
 protected slots:
     void slotSubmasterValueChanged(qreal value);
 
+public:
+    void updateSubmasterValue();
+
     /*********************************************************************
      * Intensity
      *********************************************************************/
@@ -247,17 +254,19 @@ protected:
      *********************************************************************/
 protected:
     QList<VCWidget *> getChildren(VCWidget *obj);
+    void applyProperties(VCFrameProperties const& prop);
 
 public:
     /** @reimp */
-    void editProperties();
+    virtual void editProperties();
 
     /*********************************************************************
      * Load & Save
      *********************************************************************/
 public:
-    bool loadXML(const QDomElement* root);
-    bool saveXML(QDomDocument* doc, QDomElement* vc_root);
+    bool loadXML(QXmlStreamReader &root);
+
+    bool saveXML(QXmlStreamWriter *doc);
 
     /**
      * @reimp

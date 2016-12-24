@@ -36,7 +36,6 @@ private slots:
     void initial();
     void directionRunOrder();
     void steps();
-    void clear();
     void functionRemoval();
     void copyFrom();
     void createCopy();
@@ -54,6 +53,8 @@ private slots:
     void write();
     void postRun();
     void adjustIntensity();
+
+    void quickChaser();
 
 private:
     Doc* m_doc;

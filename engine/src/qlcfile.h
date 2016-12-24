@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   qlcfile.h
 
   Copyright (C) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -23,13 +24,19 @@
 #include <QFile>
 #include <QDir>
 
+class QXmlStreamReader;
+class QXmlStreamWriter;
+#ifdef QT_XML_LIB
 class QDomDocument;
 class QDomElement;
+#endif
 class QString;
 
 /** @addtogroup engine Engine
  * @{
  */
+
+#define KXMLQLCplusNamespace "http://www.qlcplus.org/"
 
 // File extensions
 #define KExtFixture          ".qxf"  // 'Q'LC+ 'X'ml 'F'ixture
@@ -58,13 +65,12 @@ class QString;
 class QLCFile
 {
 public:
+#ifdef QT_XML_LIB
     /**
      * Read an XML file to a QDomDocument structure
      *
      * @param path Path to the file to read
      * @return QDomDocument (null doc if not successful)
-     *
-     * @return An error code (QFile::NoError if successful)
      */
     static QDomDocument readXML(const QString& path);
 
@@ -76,6 +82,33 @@ public:
      * @return A new QDomDocument containing the header
      */
     static QDomDocument getXMLHeader(const QString& content, const QString& author = QString());
+#endif
+
+    /**
+     * !!! this should replace readXML in the end !!!
+     * Request a QXmlStreamReader for an XML file
+     *
+     * @param path Path to the file to read
+     * @return QXmlStreamReader (unitialized if not successful)
+     */
+    static QXmlStreamReader *getXMLReader(const QString& path);
+
+    /**
+     * Release an existing instance of an XML reader, by closing
+     * the device file, and freeing the resources
+     */
+    static void releaseXMLReader(QXmlStreamReader *reader);
+
+    /**
+     * !!! this should replace getXMLHeader in the end !!!
+     * Write a common XML header on the given document
+     *
+     * @param xml The instance of a XML writer
+     * @param content The content type (Settings, Workspace)
+     * @param author The file's author (overridden by current user name if empty)
+     * @return true on success, false on failure
+     */
+    static bool writeXMLHeader(QXmlStreamWriter *xml, const QString& content, const QString& author = QString());
 
     /**
      * Get a string that gives a textual description for the given file
@@ -94,6 +127,11 @@ public:
      * @return Current user name.
      */
     static QString currentUserName();
+
+    /**
+     * Method called just once to set the m_isRaspberry flag
+     */
+    static void checkRaspberry();
 
     /**
      * Return if the current platform is a Raspberry Pi
@@ -117,6 +155,9 @@ public:
      * @return
      */
     static QDir userDirectory(QString path, QString fallBackPath, QStringList extensions);
+
+private:
+    static bool m_isRaspberry;
 };
 
 /** @} */

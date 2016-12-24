@@ -34,6 +34,7 @@
 #include <QUrl>
 
 #include "functionselection.h"
+#include "audioplugincache.h"
 #include "rgbmatrixeditor.h"
 #include "multitrackview.h"
 #include "chasereditor.h"
@@ -590,20 +591,18 @@ void ShowManager::slotAddItem()
 {
     if (m_show == NULL)
         return;
-#if 0
-    QList <quint32> disabledIDs;
-    if (m_show->tracks().count() > 0)
-    {
-        /** Add Scene IDs and Sequences IDs already assigned in this Show */
-        foreach (Track *track, m_show->tracks())
-        {
-            //disabledIDs.append(track->getSceneID());
-            disabledIDs.append(track->functionsID());
-        }
-    }
-#endif
+
     FunctionSelection fs(this, m_doc);
-    //fs.setDisabledFunctions(disabledIDs);
+    // Forbid self-containment
+    {
+        QList<quint32> disabledList;
+        foreach (Function* function, m_doc->functions())
+        {
+            if (function->contains(m_show->id()))
+                disabledList << function->id();
+        }
+        fs.setDisabledFunctions(disabledList);
+    }
     fs.showSequences(true);
     fs.setMultiSelection(false);
     fs.setFilter(Function::Scene | Function::Chaser | Function::Audio | Function::RGBMatrix | Function::EFX);
@@ -618,7 +617,7 @@ void ShowManager::slotAddItem()
         quint32 selectedID = ids.first();
 
         /**
-         * Here there are 7 cases:
+         * Here there are 8 cases:
          * 1) a new empty track
          * 2) an existing scene: create a new track with a 10 seconds Sequence
          * 3) an existing sequence
@@ -764,6 +763,10 @@ void ShowManager::slotAddItem()
             m_show->addTrack(newTrack);
             m_showview->addTrack(newTrack);
             m_currentTrack = newTrack;
+            if (newTrackBoundID == Function::invalidId())
+                m_currentScene = NULL;
+            else
+                m_currentScene = qobject_cast<Scene*>(m_doc->function(newTrackBoundID));
         }
 
         if (selectedID != Function::invalidId())
@@ -864,9 +867,8 @@ void ShowManager::slotAddSequence()
     if (m_currentTrack->getSceneID() == Function::invalidId())
     {
         m_currentScene = new Scene(m_doc);
-        Function *f = qobject_cast<Function*>(m_currentScene);
-        if (m_doc->addFunction(f) == true)
-            f->setName(tr("Scene for %1 - Track %2").arg(m_show->name()).arg(m_currentTrack->id() + 1));
+        if (m_doc->addFunction(m_currentScene))
+            m_currentScene->setName(tr("Scene for %1 - Track %2").arg(m_show->name()).arg(m_currentTrack->id() + 1));
         m_currentTrack->setSceneID(m_currentScene->id());
     }
 
@@ -896,7 +898,7 @@ void ShowManager::slotAddAudio()
     //dialog.selectFile(fileName());
 
     /* Append file filters to the dialog */
-    QStringList extList = Audio::getCapabilities();
+    QStringList extList = m_doc->audioPluginCache()->getSupportedFormats();
 
     QStringList filters;
     qDebug() << Q_FUNC_INFO << "Extensions: " << extList.join(" ");
@@ -1051,29 +1053,56 @@ void ShowManager::slotPaste()
         if (clipboardCopy->type() == Function::Chaser)
         {
             Chaser *chaser = qobject_cast<Chaser*>(newCopy);
-            // Verify the Chaser copy steps against the current Scene
-            foreach(ChaserStep cs, chaser->steps())
+            if (chaser->isSequence() == true)
             {
-                foreach(SceneValue scv, cs.values)
+                if (m_currentScene == NULL)
                 {
-                    if (m_currentScene->checkValue(scv) == false)
+                    // No scene on the current track -> copy it from source sequence
+                    Scene* clipboardCopyScene = qobject_cast<Scene*>(m_doc->function(chaser->getBoundSceneID()));
+                    if (clipboardCopyScene == NULL)
                     {
-                        QMessageBox::warning(this, tr("Paste error"), tr("Trying to paste on an incompatible Scene. Operation cancelled."));
+                        delete newCopy;
                         return;
                     }
+                    Scene* newScene = static_cast<Scene*>(clipboardCopyScene->createCopy(m_doc, true));
+                    if (newScene == NULL)
+                    {
+                        delete newCopy;
+                        return;
+                    }
+                    m_currentScene = newScene;
+                    m_currentTrack->setSceneID(m_currentScene->id());
                 }
+                else
+                {
+                    // Verify the Chaser copy steps against the current Scene
+                    foreach(ChaserStep cs, chaser->steps())
+                    {
+                        foreach(SceneValue scv, cs.values)
+                        {
+                            if (m_currentScene->checkValue(scv) == false)
+                            {
+                                QMessageBox::warning(this, tr("Paste error"), tr("Trying to paste on an incompatible Scene. Operation cancelled."));
+                                delete newCopy;
+                                return;
+                            }
+                        }
+                    }
+                }
+                // Bind the sequence to the track Scene ID
+                chaser->enableSequenceMode(m_currentScene->id());
             }
 
-            // Invalidate start time so the sequence will be pasted at the cursor position
+            // Invalidate start time so the chaser will be pasted at the cursor position
             chaser->setStartTime(UINT_MAX);
-            // Reset the Scene ID to bind to the correct Scene
-            chaser->enableSequenceMode(m_currentScene->id());
             if (m_doc->addFunction(newCopy) == false)
             {
                 delete newCopy;
                 return;
             }
-            Track *track = m_show->getTrackFromSceneID(m_currentScene->id());
+            Track *track = m_currentTrack;
+            if (chaser->isSequence())
+                track = m_show->getTrackFromSceneID(m_currentScene->id());
             m_showview->addSequence(chaser, track);
         }
         else if (clipboardCopy->type() == Function::Audio)
@@ -1121,7 +1150,10 @@ void ShowManager::slotPaste()
         else if (clipboardCopy->type() == Function::Scene)
         {
             if (m_doc->addFunction(newCopy) == false)
+            {
+                delete newCopy;
                 return;
+            }
             m_currentScene = qobject_cast<Scene*>(newCopy);
             Track* newTrack = new Track(m_currentScene->id());
             newTrack->setName(m_currentScene->name());
@@ -1172,9 +1204,10 @@ void ShowManager::slotDelete()
 
 void ShowManager::slotStopPlayback()
 {
+    m_playAction->setIcon(QIcon(":/player_play.png"));
     if (m_show != NULL && m_show->isRunning())
     {
-        m_show->stop();
+        m_show->stop(functionParent());
         return;
     }
     m_showview->rewindCursor();
@@ -1185,7 +1218,25 @@ void ShowManager::slotStartPlayback()
 {
     if (m_showsCombo->count() == 0 || m_show == NULL)
         return;
-    m_show->start(m_doc->masterTimer(), false, m_showview->getTimeFromCursor());
+
+    if (m_show->isRunning() == false)
+    {
+        m_show->start(m_doc->masterTimer(), functionParent(), m_showview->getTimeFromCursor());
+        m_playAction->setIcon(QIcon(":/player_pause.png"));
+    }
+    else
+    {
+        if (m_show->isPaused())
+        {
+            m_playAction->setIcon(QIcon(":/player_pause.png"));
+            m_show->setPause(false);
+        }
+        else
+        {
+            m_playAction->setIcon(QIcon(":/player_play.png"));
+            m_show->setPause(true);
+        }
+    }
 }
 
 void ShowManager::slotShowStopped()
@@ -1268,7 +1319,7 @@ void ShowManager::slotShowItemMoved(ShowItem *item, quint32 time, bool moved)
         if (m_currentEditor != NULL)
         {
             ChaserEditor *editor = qobject_cast<ChaserEditor*>(m_currentEditor);
-            editor->selectStepAtTime(time);
+            editor->selectStepAtTime(time - item->getStartTime());
         }
     }
     else
@@ -1423,10 +1474,6 @@ void ShowManager::slotShowTimingsTool()
     {
         if (func->type() == Function::Audio)
             tt->showDurationControls(false);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
-        if (func->type() == Function::Video)
-            tt->showDurationControls(false);
-#endif
         if (func->type() == Function::RGBMatrix || func->type() == Function::EFX)
             tt->showDurationOptions(true);
     }
@@ -1765,7 +1812,7 @@ void ShowManager::hideEvent(QHideEvent* ev)
     qDebug() << Q_FUNC_INFO;
     emit functionManagerActive(false);
     QWidget::hideEvent(ev);
-    
+
     if (m_currentEditor != NULL)
     {
         m_vsplitter->widget(1)->layout()->removeWidget(m_currentEditor);
@@ -1781,4 +1828,9 @@ void ShowManager::hideEvent(QHideEvent* ev)
         m_sceneEditor->deleteLater();
         m_sceneEditor = NULL;
     }
+}
+
+FunctionParent ShowManager::functionParent() const
+{
+    return FunctionParent::master();
 }

@@ -89,14 +89,23 @@ VideoEditor::VideoEditor(QWidget* parent, Video *video, Doc* doc)
     connect(m_fullCheck, SIGNAL(clicked()),
             this, SLOT(slotFullscreenCheckClicked()));
 
+    if(m_video->runOrder() == Video::Loop)
+        m_loopCheck->setChecked(true);
+    else
+        m_singleCheck->setChecked(true);
+
+    connect(m_loopCheck, SIGNAL(clicked()),
+            this, SLOT(slotLoopCheckClicked()));
+    connect(m_singleCheck, SIGNAL(clicked()),
+            this, SLOT(slotSingleShotCheckClicked()));
+
     // Set focus to the editor
     m_nameEdit->setFocus();
 }
 
 VideoEditor::~VideoEditor()
 {
-    if (m_video->isRunning())
-       m_video->stop();
+    m_video->stopAndWait();
 /*
     disconnect(m_video, SIGNAL(totalTimeChanged(qint64)),
                this, SLOT(slotDurationChanged(qint64)));
@@ -147,8 +156,7 @@ void VideoEditor::slotSourceFileClicked()
     if (fn.isEmpty() == true)
         return;
 
-    if (m_video->isRunning())
-        m_video->stopAndWait();
+    m_video->stopAndWait();
 
     m_video->setSourceUrl(fn);
     m_filenameLabel->setText(m_video->sourceUrl());
@@ -184,16 +192,26 @@ void VideoEditor::slotFullscreenCheckClicked()
     m_video->setFullscreen(true);
 }
 
+void VideoEditor::slotSingleShotCheckClicked()
+{
+    m_video->setRunOrder(Video::SingleShot);
+}
+
+void VideoEditor::slotLoopCheckClicked()
+{
+    m_video->setRunOrder(Video::Loop);
+}
+
 void VideoEditor::slotPreviewToggled(bool state)
 {
     if (state == true)
     {
-        m_video->start(m_doc->masterTimer());
+        m_video->start(m_doc->masterTimer(), functionParent());
         connect(m_video, SIGNAL(stopped(quint32)),
                 this, SLOT(slotPreviewStopped(quint32)));
     }
     else
-        m_video->stop();
+        m_video->stop(functionParent());
 }
 
 void VideoEditor::slotPreviewStopped(quint32 id)
@@ -225,3 +243,7 @@ void VideoEditor::slotMetaDataChanged(QString key, QVariant data)
         m_acodecLabel->setText(data.toString());
 }
 
+FunctionParent VideoEditor::functionParent() const
+{
+    return FunctionParent::master();
+}

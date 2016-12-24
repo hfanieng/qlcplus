@@ -31,10 +31,6 @@ Audio functions can be placed in <A HREF="#Chaser">Chaser</A> or in a <A HREF="#
 using the <A HREF="file:showmanager.html">Show Manager</A> panel.<br>
 Like most of the QLC+ functions, Audio supports fade in and fade out times.<br>
 </P>
-<P>
-<B>Warning:</B> Even though QLC+ allows you to, it is not possible to play two audio files simultaneously.
-Especially on Windows, you might experience unwanted crashes.
-</P>
 
 <H3 id="Blackout"><IMG SRC="qrc:/blackout.png"> Blackout</H3>
 
@@ -112,7 +108,7 @@ So far, three types of widgets are available:
  <LI>RGB Color Picker. Controls values for selected RGB channels with a single click</LI>
  <LI>Gobo/Macro Picker. Access and display a Gobo/Macro defined in the Fixture definition</LI>
 </UL>
-An overview with screenshots is available <A href="http://qlcplus.sourceforge.net/clickandgo.html">here</A>
+An overview with screenshots is available <A href="http://qlcplus.org/clickandgo.html">here</A>
 </P>
 
 <H3 id="Collection"><IMG SRC="qrc:/collection.png"> Collection</H3>
@@ -159,7 +155,7 @@ An EFX <A HREF="#Functions">function</A> is mainly used to automate moving
 lights (e.g. scanners &amp; moving heads). The EFX can create complex mathematical
 paths on an X-Y plane that are converted to DMX values for the fixture's pan and
 tilt channels. <B>Only fixtures that contain valid pan &amp; tilt channels can take
-part in an EFX function.</B>
+part in an EFX function.</B> Lately EFX can control also other channels like Dimmer or RGB.
 </P>
 
 <H3 id="Fixtures"><IMG SRC="qrc:/fixture.png"> Fixtures</H3>
@@ -489,6 +485,16 @@ QLC+ functionalities in a sequential order. A Script can be modified with the  <
 A Show is an advanced <A HREF="#Functions">function</A> which encapsulates most of the QLC+ Functions to create
 a time driven light show. A Show can be created only with the <A HREF="file:showmanager.html">Show Manager</A> and can be inspected and renamed with the
 <A HREF="file:showeditor.html">Show Editor</A>.
+</P>
+
+<H3 id="Video"><IMG SRC="qrc:/video.png"> Video</H3>
+<P>
+A video <A HREF="#Functions">function</A> is an object representing a video file
+stored in a disk or a network URL.<br>
+The supported video formats depends on your Operating System. For example Mac OSX is limited to MOV/MP4 files and
+not much more.<br>
+Video functions can be placed in <A HREF="#Chaser">Chaser</A> or in a <A HREF="#Show">Show</A> at the desired time, 
+using the <A HREF="file:showmanager.html">Show Manager</A> panel.<br>
 </P>
 
 </BODY>

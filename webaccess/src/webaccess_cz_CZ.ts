@@ -32,7 +32,7 @@
         <location filename="webaccess.cpp" line="721"/>
         <location filename="webaccess.cpp" line="762"/>
         <source>Page</source>
-        <translation type="unfinished">Strana</translation>
+        <translation>Strana</translation>
     </message>
     <message>
         <location filename="webaccess.cpp" line="900"/>
@@ -42,27 +42,27 @@
     <message>
         <location filename="webaccess.cpp" line="930"/>
         <source>Name</source>
-        <translation type="unfinished"></translation>
+        <translation>Název</translation>
     </message>
     <message>
         <location filename="webaccess.cpp" line="931"/>
         <source>Fade In</source>
-        <translation type="unfinished"></translation>
+        <translation>Zesílení</translation>
     </message>
     <message>
         <location filename="webaccess.cpp" line="932"/>
         <source>Fade Out</source>
-        <translation type="unfinished"></translation>
+        <translation>Zeslabení</translation>
     </message>
     <message>
         <location filename="webaccess.cpp" line="933"/>
         <source>Duration</source>
-        <translation type="unfinished"></translation>
+        <translation>Trvání</translation>
     </message>
     <message>
         <location filename="webaccess.cpp" line="934"/>
         <source>Notes</source>
-        <translation type="unfinished"></translation>
+        <translation>Poznámky</translation>
     </message>
     <message>
         <location filename="webaccess.cpp" line="1161"/>
@@ -199,7 +199,7 @@
     <message>
         <location filename="webaccessnetwork.cpp" line="235"/>
         <source>Shutdown</source>
-        <translation type="unfinished"></translation>
+        <translation>Vypnout</translation>
     </message>
 </context>
 <context>
@@ -217,17 +217,17 @@
     <message>
         <location filename="webaccesssimpledesk.cpp" line="56"/>
         <source>Previous page</source>
-        <translation type="unfinished"></translation>
+        <translation>Předchozí strana</translation>
     </message>
     <message>
         <location filename="webaccesssimpledesk.cpp" line="64"/>
         <source>Next page</source>
-        <translation type="unfinished"></translation>
+        <translation>Následující strana</translation>
     </message>
     <message>
         <location filename="webaccesssimpledesk.cpp" line="67"/>
         <source>Reset universe</source>
-        <translation type="unfinished"></translation>
+        <translation>Resetovat větve</translation>
     </message>
     <message>
         <location filename="webaccesssimpledesk.cpp" line="69"/>

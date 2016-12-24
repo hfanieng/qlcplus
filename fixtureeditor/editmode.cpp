@@ -258,8 +258,7 @@ void EditMode::refreshChannelList()
         item->setIcon(COL_NAME, ch->getIcon());
         item->setData(COL_NAME, PROP_PTR, (qulonglong) ch);
     }
-    m_channelList->resizeColumnToContents(COL_NUM);
-    m_channelList->resizeColumnToContents(COL_NAME);
+    m_channelList->header()->resizeSections(QHeaderView::ResizeToContents);
 }
 
 QLCChannel* EditMode::currentChannel()
@@ -380,7 +379,7 @@ void EditMode::refreshHeadList()
 
         QLCFixtureHead head = m_mode->heads().at(i);
 
-        QList <quint32> channels(head.channels().toList());
+        QList <quint32> channels(head.channels());
         qSort(channels.begin(), channels.end());
 
         QString summary;
@@ -392,7 +391,7 @@ void EditMode::refreshHeadList()
             const QLCChannel* ch = m_mode->channel(chnum);
             QTreeWidgetItem* chitem = new QTreeWidgetItem(item);
             if (ch != NULL)
-                chitem->setText(0, QString("%1: %2").arg(chnum).arg(ch->name()));
+                chitem->setText(0, QString("%1: %2").arg(chnum + 1).arg(ch->name()));
             else
                 chitem->setText(0, QString("%1: INVALID!"));
             chitem->setFlags(0); // Disable channel selection inside heads

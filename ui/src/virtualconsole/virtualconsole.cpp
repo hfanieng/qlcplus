@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   virtualconsole.cpp
 
   Copyright (c) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -17,6 +18,8 @@
   limitations under the License.
 */
 
+#include <QXmlStreamReader>
+#include <QXmlStreamWriter>
 #include <QDesktopWidget>
 #include <QApplication>
 #include <QInputDialog>
@@ -28,6 +31,7 @@
 #include <QFileDialog>
 #include <QFontDialog>
 #include <QScrollArea>
+#include <QSettings>
 #include <QKeyEvent>
 #include <QMenuBar>
 #include <QToolBar>
@@ -35,7 +39,6 @@
 #include <QDebug>
 #include <QMenu>
 #include <QList>
-#include <QtXml>
 
 #include "vcpropertieseditor.h"
 #include "addvcbuttonmatrix.h"
@@ -132,7 +135,6 @@ VirtualConsole::VirtualConsole(QWidget* parent, Doc* doc)
     , m_scrollArea(NULL)
     , m_contents(NULL)
 
-    , m_tapModifierDown(false)
     , m_liveEdit(false)
 {
     Q_ASSERT(s_instance == NULL);
@@ -1514,7 +1516,6 @@ void VirtualConsole::resetContents()
     updateActions();
 
     /* Reset all properties but size */
-    m_properties.setTapModifier(Qt::ControlModifier);
     m_properties.setGrandMasterChannelMode(GrandMaster::Intensity);
     m_properties.setGrandMasterValueMode(GrandMaster::Reduce);
     m_properties.setGrandMasterInputSource(InputOutputMap::invalidUniverse(), QLCChannel::invalid());
@@ -1525,7 +1526,6 @@ void VirtualConsole::addWidgetInMap(VCWidget* widget)
     // Valid ID ?
     if (widget->id() != VCWidget::invalidId())
     {
-
         // Maybe we don't know this widget yet
         if (!m_widgetsMap.contains(widget->id()))
         {
@@ -1588,11 +1588,6 @@ void VirtualConsole::initContents()
  * Key press handler
  *****************************************************************************/
 
-bool VirtualConsole::isTapModifierDown() const
-{
-    return m_tapModifierDown;
-}
-
 void VirtualConsole::keyPressEvent(QKeyEvent* event)
 {
     if (event->isAutoRepeat() == true)
@@ -1600,9 +1595,6 @@ void VirtualConsole::keyPressEvent(QKeyEvent* event)
         event->ignore();
         return;
     }
-
-    if ((event->modifiers() & Qt::ControlModifier) != 0)
-        m_tapModifierDown = true;
 
     QKeySequence seq(event->key() | (event->modifiers() & ~Qt::ControlModifier));
     emit keyPressed(seq);
@@ -1617,9 +1609,6 @@ void VirtualConsole::keyReleaseEvent(QKeyEvent* event)
         event->ignore();
         return;
     }
-
-    if ((event->modifiers() & Qt::ControlModifier) == 0)
-        m_tapModifierDown = false;
 
     QKeySequence seq(event->key() | event->modifiers());
     emit keyReleased(seq);
@@ -1807,60 +1796,58 @@ void VirtualConsole::slotModeChanged(Doc::Mode mode)
  * Load & Save
  *****************************************************************************/
 
-bool VirtualConsole::loadXML(const QDomElement& root)
+bool VirtualConsole::loadXML(QXmlStreamReader &root)
 {
-    if (root.tagName() != KXMLQLCVirtualConsole)
+    if (root.name() != KXMLQLCVirtualConsole)
     {
         qWarning() << Q_FUNC_INFO << "Virtual Console node not found";
         return false;
     }
 
-    QDomNode node = root.firstChild();
-    while (node.isNull() == false)
+    while (root.readNextStartElement())
     {
-        QDomElement tag = node.toElement();
-        if (tag.tagName() == KXMLQLCVCProperties)
+        //qDebug() << "VC tag:" << root.name();
+        if (root.name() == KXMLQLCVCProperties)
         {
             /* Properties */
-            m_properties.loadXML(tag);
+            m_properties.loadXML(root);
             QSize size(m_properties.size());
             contents()->resize(size);
             contents()->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));
         }
-        else if (tag.tagName() == KXMLQLCVCFrame)
+        else if (root.name() == KXMLQLCVCFrame)
         {
             /* Contents */
             Q_ASSERT(m_contents != NULL);
-            m_contents->loadXML(&tag);
+            m_contents->loadXML(root);
         }
         else
         {
             qWarning() << Q_FUNC_INFO << "Unknown Virtual Console tag"
-                       << tag.tagName();
+                       << root.name().toString();
+            root.skipCurrentElement();
         }
-
-        /* Next node */
-        node = node.nextSibling();
     }
 
     return true;
 }
 
-bool VirtualConsole::saveXML(QDomDocument* doc, QDomElement* wksp_root)
+bool VirtualConsole::saveXML(QXmlStreamWriter *doc)
 {
     Q_ASSERT(doc != NULL);
-    Q_ASSERT(wksp_root != NULL);
 
     /* Virtual Console entry */
-    QDomElement vc_root = doc->createElement(KXMLQLCVirtualConsole);
-    wksp_root->appendChild(vc_root);
+    doc->writeStartElement(KXMLQLCVirtualConsole);
 
     /* Contents */
     Q_ASSERT(m_contents != NULL);
-    m_contents->saveXML(doc, &vc_root);
+    m_contents->saveXML(doc);
 
     /* Properties */
-    m_properties.saveXML(doc, &vc_root);
+    m_properties.saveXML(doc);
+
+    /* End the <VirtualConsole> tag */
+    doc->writeEndElement();
 
     return true;
 }
@@ -1918,25 +1905,4 @@ void VirtualConsole::postLoad()
     m_contents->setFocus();
 
     emit loaded();
-}
-
-
-bool VirtualConsole::checkStartupFunction(quint32 fid)
-{
-    QList<VCWidget *> widgetsList = getChildren(m_contents);
-
-    foreach (VCWidget *widget, widgetsList)
-    {
-        if (widget->type() == VCWidget::CueListWidget)
-        {
-            VCCueList *cuelist = (VCCueList *)widget;
-            if (cuelist->chaserID() == fid)
-            {
-                cuelist->slotPlayback();
-                return true;
-            }
-        }
-    }
-
-    return false;
 }

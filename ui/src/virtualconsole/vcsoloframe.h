@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   vcsoloframe.h
 
   Copyright (c) Anders Thomsen
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -24,8 +25,6 @@
 #include "vcframe.h"
 #include "function.h"
 
-class QDomDocument;
-class QDomElement;
 class QMouseEvent;
 class QString;
 class Doc;
@@ -35,6 +34,7 @@ class Doc;
  */
 
 #define KXMLQLCVCSoloFrame "SoloFrame"
+#define KXMLQLCVCSoloFrameMixing "Mixing"
 
 class VCSoloFrame : public VCFrame
 {
@@ -53,7 +53,11 @@ public:
      *************************************************************************/
 public:
     /** @reimp */
-    VCWidget* createCopy(VCWidget* parent);
+    virtual VCWidget* createCopy(VCWidget* parent);
+
+protected:
+    /** Copy the contents for this widget from another widget */
+    virtual bool copyFrom(const VCWidget* widget);
 
     /*************************************************************************
     * Solo behaviour
@@ -78,7 +82,19 @@ protected slots:
     /** Slot called when a Function attached to a widget has
      *  been requested to start.
      */
-    void slotWidgetFunctionStarting(quint32 fid);
+    void slotWidgetFunctionStarting(quint32 fid, qreal intensity);
+
+    /*****************************************************************************
+     * Properties
+     *****************************************************************************/
+protected:
+    /** @reimp */
+    virtual void editProperties();
+
+    bool m_soloframeMixing;
+public:
+    bool soloframeMixing() const;
+    void setSoloframeMixing(bool soloframeMixing);
 
     /*************************************************************************
      * Load & Save

@@ -40,6 +40,7 @@
 #include "functionstreewidget.h"
 #include "functionselection.h"
 #include "collectioneditor.h"
+#include "audioplugincache.h"
 #include "functionmanager.h"
 #include "rgbmatrixeditor.h"
 #include "functionwizard.h"
@@ -120,6 +121,7 @@ FunctionManager::FunctionManager(QWidget* parent, Doc* doc)
     m_tree->updateTree();
 
     connect(m_doc, SIGNAL(clearing()), this, SLOT(slotDocClearing()));
+    connect(m_doc, SIGNAL(loading()), this, SLOT(slotDocLoading()));
     connect(m_doc, SIGNAL(loaded()), this, SLOT(slotDocLoaded()));
     connect(m_doc, SIGNAL(functionNameChanged(quint32)), this, SLOT(slotFunctionNameChanged(quint32)));
     connect(m_doc, SIGNAL(functionAdded(quint32)), this, SLOT(slotFunctionAdded(quint32)));
@@ -156,8 +158,16 @@ void FunctionManager::slotDocClearing()
     m_tree->clearTree();
 }
 
+void FunctionManager::slotDocLoading()
+{
+    disconnect(m_doc, SIGNAL(functionAdded(quint32)), this, SLOT(slotFunctionAdded(quint32)));
+}
+
 void FunctionManager::slotDocLoaded()
 {
+    connect(m_doc, SIGNAL(functionAdded(quint32)), this, SLOT(slotFunctionAdded(quint32)));
+    // Refresh in case of sequences loaded after their parent scene
+    m_tree->updateTree();
     // Once the doc is completely loaded, update all the steps of Chasers acting like sequences
     foreach (Function *f, m_doc->functionsByType(Function::Chaser))
     {
@@ -468,7 +478,7 @@ void FunctionManager::slotAddAudio()
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
 
     /* Append file filters to the dialog */
-    QStringList extList = Audio::getCapabilities();
+    QStringList extList = m_doc->audioPluginCache()->getSupportedFormats();
 
     QStringList filters;
     qDebug() << Q_FUNC_INFO << "Extensions: " << extList.join(" ");
@@ -575,6 +585,9 @@ void FunctionManager::slotSelectAutostartFunction()
     FunctionSelection fs(this, m_doc);
     fs.setMultiSelection(false);
     fs.showNone(true);
+    QList<quint32> currentStartupSelection;
+    currentStartupSelection.append(m_doc->startupFunction());
+    fs.setSelection(currentStartupSelection);
 
     if (fs.exec() == QDialog::Accepted && fs.selection().size() > 0)
     {
@@ -595,7 +608,13 @@ void FunctionManager::slotClone()
 {
     QListIterator <QTreeWidgetItem*> it(m_tree->selectedItems());
     while (it.hasNext() == true)
-        copyFunction(m_tree->itemFunctionId(it.next()));
+    {
+        QTreeWidgetItem* item = it.next();
+        quint32 fid = item->data(COL_NAME, Qt::UserRole).toUInt();
+        if (fid == Function::invalidId())
+            continue;
+        copyFunction(m_tree->itemFunctionId(item));
+    }
 }
 
 void FunctionManager::slotDelete()

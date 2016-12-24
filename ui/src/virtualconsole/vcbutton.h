@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   vcbutton.h
 
   Copyright (c) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -25,9 +26,10 @@
 #include <QIcon>
 
 #include "vcwidget.h"
+#include "function.h"
 
-class QDomDocument;
-class QDomElement;
+class QXmlStreamReader;
+class QXmlStreamWriter;
 class QMouseEvent;
 class QPaintEvent;
 class VCButton;
@@ -103,8 +105,11 @@ public:
      * Background image
      *********************************************************************/
 public:
-    /* Don't allow background image setting for buttons */
+    /** Set the button's background image */
     void setBackgroundImage(const QString& path);
+
+protected:
+    QPixmap m_bgPixmap;
 
     /*********************************************************************
      * Background color
@@ -150,7 +155,7 @@ private:
 
     /** Reload icon file from disk */
     void updateIcon();
-    
+
 public slots:
     void slotChooseIcon();
     void slotResetIcon();
@@ -184,7 +189,7 @@ public:
     quint32 function() const;
 
     /** @reimp */
-    virtual void notifyFunctionStarting(quint32 fid);
+    virtual void notifyFunctionStarting(quint32 fid, qreal intensity);
 
 protected slots:
     /** Invalidates the button's function if the function is destroyed */
@@ -303,6 +308,9 @@ public:
     /** Blink the button for $ms milliseconds */
     void blink(int ms);
 
+private:
+    FunctionParent functionParent() const;
+
 protected slots:
     /** Handler for function running signal */
     void slotFunctionRunning(quint32 fid);
@@ -352,7 +360,7 @@ public:
      * @param btn_root A VCButton XML root node containing button properties
      * @return true if successful; otherwise false
      */
-    bool loadXML(const QDomElement* btn_root);
+    bool loadXML(QXmlStreamReader &root);
 
     /**
      * Save a VCButton's properties to an XML document node
@@ -360,7 +368,7 @@ public:
      * @param doc The master XML document to save to
      * @param frame_root The button's VCFrame XML parent node to save to
      */
-    bool saveXML(QDomDocument* doc, QDomElement* frame_root);
+    bool saveXML(QXmlStreamWriter *doc);
 
     /*********************************************************************
      * Event Handlers

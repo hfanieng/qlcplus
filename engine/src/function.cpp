@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   function.cpp
 
   Copyright (c) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -17,9 +18,12 @@
   limitations under the License.
 */
 
+#include <QXmlStreamReader>
+#include <QXmlStreamWriter>
+#include <QElapsedTimer>
 #include <QString>
 #include <QDebug>
-#include <QtXml>
+#include <math.h>
 
 #include "qlcmacros.h"
 #include "qlcfile.h"
@@ -61,17 +65,23 @@ const QString KRandomString     (     "Random" );
 const QString KBackwardString   (   "Backward" );
 const QString KForwardString    (    "Forward" );
 
+const QString KTimeTypeString   (       "Time" );
+const QString KBeatsTypeString  (      "Beats" );
+
 /*****************************************************************************
  * Initialization
  *****************************************************************************/
 
-Function::Function(Doc* doc, Type t)
-    : QObject(doc)
+Function::Function(QObject *parent)
+    : QObject(parent)
     , m_id(Function::invalidId())
-    , m_type(t)
+    , m_type(Undefined)
     , m_path(QString())
     , m_runOrder(Loop)
     , m_direction(Forward)
+    , m_tempoType(Time)
+    , m_overrideTempoType(Original)
+    , m_beatResyncNeeded(false)
     , m_fadeInSpeed(0)
     , m_fadeOutSpeed(0)
     , m_duration(0)
@@ -81,9 +91,39 @@ Function::Function(Doc* doc, Type t)
     , m_uiState()
     , m_flashing(false)
     , m_elapsed(0)
+    , m_elapsedBeats(0)
     , m_stop(true)
     , m_running(false)
-    , m_startedAsChild(false)
+    , m_paused(false)
+    , m_blendMode(Universe::NormalBlend)
+{
+
+}
+
+Function::Function(Doc* doc, Type t)
+    : QObject(doc)
+    , m_id(Function::invalidId())
+    , m_type(t)
+    , m_path(QString())
+    , m_runOrder(Loop)
+    , m_direction(Forward)
+    , m_tempoType(Time)
+    , m_overrideTempoType(Original)
+    , m_beatResyncNeeded(false)
+    , m_fadeInSpeed(0)
+    , m_fadeOutSpeed(0)
+    , m_duration(0)
+    , m_overrideFadeInSpeed(defaultSpeed())
+    , m_overrideFadeOutSpeed(defaultSpeed())
+    , m_overrideDuration(defaultSpeed())
+    , m_uiState()
+    , m_flashing(false)
+    , m_elapsed(0)
+    , m_elapsedBeats(0)
+    , m_stop(true)
+    , m_running(false)
+    , m_paused(false)
+    , m_blendMode(Universe::NormalBlend)
 {
     Q_ASSERT(doc != NULL);
     registerAttribute(tr("Intensity"));
@@ -95,13 +135,30 @@ Function::~Function()
 
 Doc* Function::doc() const
 {
-    Doc* doc = qobject_cast<Doc*> (parent());
-    return doc;
+    return qobject_cast<Doc*>(parent());
 }
 
 /*****************************************************************************
  * Copying
  *****************************************************************************/
+Function *Function::createCopy(Doc *doc, bool addToDoc)
+{
+    Q_ASSERT(doc != NULL);
+
+    Function* copy = new Function(doc, type());
+    if (copy->copyFrom(this) == false)
+    {
+        delete copy;
+        copy = NULL;
+    }
+    if (addToDoc == true && doc->addFunction(copy) == false)
+    {
+        delete copy;
+        copy = NULL;
+    }
+
+    return copy;
+}
 
 bool Function::copyFrom(const Function* function)
 {
@@ -111,10 +168,12 @@ bool Function::copyFrom(const Function* function)
     m_name = function->name();
     m_runOrder = function->runOrder();
     m_direction = function->direction();
+    m_tempoType = function->tempoType();
     m_fadeInSpeed = function->fadeInSpeed();
     m_fadeOutSpeed = function->fadeOutSpeed();
     m_duration = function->duration();
     m_path = function->path(true);
+    m_blendMode = function->blendMode();
     uiState()->copyFrom(function->uiState());
 
     emit changed(m_id);
@@ -149,6 +208,9 @@ quint32 Function::invalidId()
 
 void Function::setName(const QString& name)
 {
+    if (m_name == name)
+        return;
+
     m_name = QString(name);
 
     emit nameChanged(m_id);
@@ -229,34 +291,9 @@ Function::Type Function::stringToType(const QString& string)
         return Undefined;
 }
 
-QIcon Function::typeToIcon(Function::Type type)
+QIcon Function::getIcon() const
 {
-    switch (type)
-    {
-    case Scene:
-        return QIcon(":/scene.png");
-    case Chaser:
-        return QIcon(":/chaser.png");
-    case EFX:
-        return QIcon(":/efx.png");
-    case Collection:
-        return QIcon(":/collection.png");
-    case Script:
-        return QIcon(":/script.png");
-    case RGBMatrix:
-        return QIcon(":/rgbmatrix.png");
-    case Show:
-        return QIcon(":/show.png");
-    case Audio:
-        return QIcon(":/audio.png");
-#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
-    case Video:
-        return QIcon(":/video.png");
-#endif
-    case Undefined:
-    default:
-        return QIcon(":/function.png");
-    }
+    return QIcon(":/function.png");
 }
 
 /*********************************************************************
@@ -282,15 +319,17 @@ QString Function::path(bool simplified) const
  * Common
  *********************************************************************/
 
-bool Function::saveXMLCommon(QDomElement *root) const
+bool Function::saveXMLCommon(QXmlStreamWriter *doc) const
 {
-    Q_ASSERT(root != NULL);
+    Q_ASSERT(doc != NULL);
 
-    root->setAttribute(KXMLQLCFunctionID, id());
-    root->setAttribute(KXMLQLCFunctionType, Function::typeToString(type()));
-    root->setAttribute(KXMLQLCFunctionName, name());
+    doc->writeAttribute(KXMLQLCFunctionID, QString::number(id()));
+    doc->writeAttribute(KXMLQLCFunctionType, Function::typeToString(type()));
+    doc->writeAttribute(KXMLQLCFunctionName, name());
     if (path(true).isEmpty() == false)
-        root->setAttribute(KXMLQLCFunctionPath, path(true));
+        doc->writeAttribute(KXMLQLCFunctionPath, path(true));
+    if (blendMode() != Universe::NormalBlend)
+        doc->writeAttribute(KXMLQLCFunctionBlendMode, Universe::blendModeToString(blendMode()));
 
     return true;
 }
@@ -341,28 +380,27 @@ Function::RunOrder Function::stringToRunOrder(const QString& str)
         return Loop;
 }
 
-bool Function::saveXMLRunOrder(QDomDocument* doc, QDomElement* root) const
+bool Function::saveXMLRunOrder(QXmlStreamWriter *doc) const
 {
     Q_ASSERT(doc != NULL);
-    Q_ASSERT(root != NULL);
 
-    QDomElement tag = doc->createElement(KXMLQLCFunctionRunOrder);
-    root->appendChild(tag);
-    QDomText text = doc->createTextNode(runOrderToString(runOrder()));
-    tag.appendChild(text);
+    doc->writeTextElement(KXMLQLCFunctionRunOrder, runOrderToString(runOrder()));
 
     return true;
 }
 
-bool Function::loadXMLRunOrder(const QDomElement& root)
+bool Function::loadXMLRunOrder(QXmlStreamReader &root)
 {
-    if (root.tagName() != KXMLQLCFunctionRunOrder)
+    if (root.name() != KXMLQLCFunctionRunOrder)
     {
         qWarning() << Q_FUNC_INFO << "RunOrder node not found";
         return false;
     }
+    QString str = root.readElementText();
+    if (str.isEmpty())
+        return false;
 
-    setRunOrder(stringToRunOrder(root.text()));
+    setRunOrder(stringToRunOrder(str));
 
     return true;
 }
@@ -389,11 +427,11 @@ QString Function::directionToString(const Direction& dir)
 {
     switch (dir)
     {
-    default:
-    case Forward:
-        return KForwardString;
-    case Backward:
-        return KBackwardString;
+        default:
+        case Forward:
+            return KForwardString;
+        case Backward:
+            return KBackwardString;
     }
 }
 
@@ -405,30 +443,138 @@ Function::Direction Function::stringToDirection(const QString& str)
         return Forward;
 }
 
-bool Function::saveXMLDirection(QDomDocument* doc, QDomElement* root) const
+bool Function::saveXMLDirection(QXmlStreamWriter *doc) const
 {
     Q_ASSERT(doc != NULL);
-    Q_ASSERT(root != NULL);
 
-    QDomElement tag = doc->createElement(KXMLQLCFunctionDirection);
-    root->appendChild(tag);
-    QDomText text = doc->createTextNode(directionToString(direction()));
-    tag.appendChild(text);
+    doc->writeTextElement(KXMLQLCFunctionDirection, directionToString(direction()));
 
     return true;
 }
 
-bool Function::loadXMLDirection(const QDomElement& root)
+bool Function::loadXMLDirection(QXmlStreamReader &root)
 {
-    if (root.tagName() != KXMLQLCFunctionDirection)
+    if (root.name() != KXMLQLCFunctionDirection)
     {
         qWarning() << Q_FUNC_INFO << "Direction node not found";
         return false;
     }
 
-    setDirection(stringToDirection(root.text()));
+    QString str = root.readElementText();
+    if (str.isEmpty())
+        return false;
+
+    setDirection(stringToDirection(str));
 
     return true;
+}
+
+/*********************************************************************
+ * Speed type
+ *********************************************************************/
+
+void Function::setTempoType(const Function::TempoType &type)
+{
+    if (type == m_tempoType)
+        return;
+
+    m_tempoType = type;
+
+    /* Retrieve the current BPM value known by the Master Timer */
+    float bpmNum = doc()->masterTimer()->bpmNumber();
+    /* Calculate the duration in ms of a single beat */
+    float beatTime = 60000.0 / bpmNum;
+
+    switch (type)
+    {
+        /* Beats -> Time */
+        case Time:
+            setFadeInSpeed(beatsToTime(fadeInSpeed(), beatTime));
+            setDuration(beatsToTime(duration(), beatTime));
+            setFadeOutSpeed(beatsToTime(fadeOutSpeed(), beatTime));
+            disconnect(doc()->masterTimer(), SIGNAL(bpmNumberChanged(int)),
+                       this, SLOT(slotBPMChanged(int)));
+        break;
+
+        /* Time -> Beats */
+        case Beats:
+            setFadeInSpeed(timeToBeats(fadeInSpeed(), beatTime));
+            setDuration(timeToBeats(duration(), beatTime));
+            setFadeOutSpeed(timeToBeats(fadeOutSpeed(), beatTime));
+            connect(doc()->masterTimer(), SIGNAL(bpmNumberChanged(int)),
+                    this, SLOT(slotBPMChanged(int)));
+        break;
+        default:
+            qDebug() << "Error. Unhandled tempo type" << type;
+        break;
+    }
+
+    emit changed(m_id);
+}
+
+Function::TempoType Function::tempoType() const
+{
+    return m_tempoType;
+}
+
+QString Function::tempoTypeToString(const Function::TempoType &type)
+{
+    switch (type)
+    {
+        default:
+        case Time:
+            return KTimeTypeString;
+        case Beats:
+            return KBeatsTypeString;
+    }
+}
+
+Function::TempoType Function::stringToTempoType(const QString &str)
+{
+    if (str == KTimeTypeString)
+        return Time;
+    else
+        return Beats;
+}
+
+uint Function::timeToBeats(uint time, int beatDuration)
+{
+    if (time == 0 || time == infiniteSpeed())
+        return time;
+
+    uint value = 0;
+
+    float beats = (float)time / (float)beatDuration;
+    value = floor(beats) * 1000;
+
+    beats -= floor(beats);
+    beats = floor((beats * 1000) / 125) * 125;
+
+    return value + beats;
+}
+
+uint Function::beatsToTime(uint beats, int beatDuration)
+{
+    if (beats == 0 || beats == infiniteSpeed())
+        return beats;
+
+    return ((float)beats / 1000.0) * beatDuration;
+}
+
+Function::TempoType Function::overrideTempoType() const
+{
+    return m_overrideTempoType;
+}
+
+void Function::setOverrideTempoType(Function::TempoType type)
+{
+    m_overrideTempoType = type;
+}
+
+void Function::slotBPMChanged(int bpmNumber)
+{
+    Q_UNUSED(bpmNumber)
+    m_beatResyncNeeded = true;
 }
 
 /****************************************************************************
@@ -466,6 +612,18 @@ void Function::setDuration(uint ms)
 uint Function::duration() const
 {
     return m_duration;
+}
+
+quint32 Function::totalDuration()
+{
+    // fall back to duration in case a
+    // subclass doesn't provide this method
+    return duration();
+}
+
+void Function::setTotalDuration(quint32 msec)
+{
+    Q_UNUSED(msec)
 }
 
 void Function::setOverrideFadeInSpeed(uint ms)
@@ -519,82 +677,117 @@ QString Function::speedToString(uint ms)
         ms -= (s * MS_PER_SECOND);
 
         if (h != 0)
-            str += QString("%1h").arg(h, 2, 10, QChar('0'));
+            str += QString("%1h").arg(h, 1, 10, QChar('0'));
         if (m != 0)
-            str += QString("%1m").arg(m, 2, 10, QChar('0'));
+            str += QString("%1m").arg(m, str.size() ? 2 : 1, 10, QChar('0'));
         if (s != 0)
-            str += QString("%1s").arg(s, 2, 10, QChar('0'));
-        // Always display .ms
-        str += QString(".%1").arg(ms / 10, 2, 10, QChar('0'));
+            str += QString("%1s").arg(s, str.size() ? 2 : 1, 10, QChar('0'));
+        if (ms != 0 || str.size() == 0)
+            str += QString("%1ms").arg(ms, str.size() ? 3 : 1, 10, QChar('0'));
     }
 
     return str;
+}
+
+static uint speedSplit(QString& speedString, QString splitNeedle)
+{
+    QStringList splitResult;
+    // Filter out "ms" because "m" and "s" may wrongly use it
+    splitResult = speedString.split("ms");
+    if (splitResult.count() > 1)
+        splitResult = splitResult.at(0).split(splitNeedle);
+    else
+        splitResult = speedString.split(splitNeedle);
+
+    if (splitResult.count() > 1)
+    {
+        speedString.remove(0, speedString.indexOf(splitNeedle) + 1);
+        return splitResult.at(0).toUInt();
+    }
+    return 0;
 }
 
 uint Function::stringToSpeed(QString speed)
 {
     uint value = 0;
 
-    QStringList hours = speed.split("h");
-    if (hours.count() > 1)
+    if (speed == QChar(0x221E)) // Infinity symbol
+        return infiniteSpeed();
+
+    value += speedSplit(speed, "h") * 1000 * 60 * 60;
+    value += speedSplit(speed, "m") * 1000 * 60;
+    value += speedSplit(speed, "s") * 1000;
+
+    if (speed.contains("."))
     {
-        value += (hours.at(0).toUInt() * 60 * 60 * 1000);
-        speed.remove(0, speed.indexOf("h") + 1);
+        // lround avoids toDouble precison issues (.03 transforms to .029)
+        value += lround(speed.toDouble() * 1000.0);
+    }
+    else
+    {
+        if (speed.contains("ms"))
+            speed = speed.split("ms").at(0);
+        value += speed.toUInt();
     }
 
-    QStringList mins = speed.split("m");
-    if (mins.count() > 1)
-    {
-        value += (mins.at(0).toUInt() * 60 * 1000);
-        speed.remove(0, speed.indexOf("m") + 1);
-    }
+    return speedNormalize(value);
+}
 
-    QStringList secs = speed.split("s");
-    if (secs.count() > 1)
-    {
-        value += (secs.at(0).toUInt() * 1000);
-        speed.remove(0, speed.indexOf("s") + 1);
-    }
+uint Function::speedNormalize(uint speed)
+{
+    if ((int)speed < 0)
+        return infiniteSpeed();
+    return speed;
+}
 
-    QStringList msecs = speed.split(".");
-    if (msecs.count() > 0)
-    {
-        QString msecStr = msecs.at(msecs.count() - 1);
-        uint msecInt = msecStr.toUInt();
-        if (msecInt < 10 && msecStr.contains("0") == false)
-            value += (msecInt * 100);
-        else
-            value += (msecInt * 10);
-    }
+uint Function::speedAdd(uint left, uint right)
+{
+    if (speedNormalize(left) == infiniteSpeed()
+        || speedNormalize(right) == infiniteSpeed())
+        return infiniteSpeed();
 
-    return value;
+    return speedNormalize(left + right);
+}
+
+uint Function::speedSubtract(uint left, uint right)
+{
+    if (right >= left)
+        return 0;
+    if (speedNormalize(right) == infiniteSpeed())
+        return 0;
+    if (speedNormalize(left) == infiniteSpeed())
+        return infiniteSpeed();
+
+    return speedNormalize(left - right);
 }
 
 void Function::tap()
 {
 }
 
-bool Function::loadXMLSpeed(const QDomElement& speedRoot)
+bool Function::loadXMLSpeed(QXmlStreamReader &speedRoot)
 {
-    if (speedRoot.tagName() != KXMLQLCFunctionSpeed)
+    if (speedRoot.name() != KXMLQLCFunctionSpeed)
         return false;
 
-    m_fadeInSpeed = speedRoot.attribute(KXMLQLCFunctionSpeedFadeIn).toUInt();
-    m_fadeOutSpeed = speedRoot.attribute(KXMLQLCFunctionSpeedFadeOut).toUInt();
-    m_duration = speedRoot.attribute(KXMLQLCFunctionSpeedDuration).toUInt();
+    QXmlStreamAttributes attrs = speedRoot.attributes();
+
+    m_fadeInSpeed = attrs.value(KXMLQLCFunctionSpeedFadeIn).toString().toUInt();
+    m_fadeOutSpeed = attrs.value(KXMLQLCFunctionSpeedFadeOut).toString().toUInt();
+    m_duration = attrs.value(KXMLQLCFunctionSpeedDuration).toString().toUInt();
+
+    speedRoot.skipCurrentElement();
 
     return true;
 }
 
-bool Function::saveXMLSpeed(QDomDocument* doc, QDomElement* root) const
+bool Function::saveXMLSpeed(QXmlStreamWriter *doc) const
 {
-    QDomElement tag;
-
-    tag = doc->createElement(KXMLQLCFunctionSpeed);
-    tag.setAttribute(KXMLQLCFunctionSpeedFadeIn, QString::number(fadeInSpeed()));
-    tag.setAttribute(KXMLQLCFunctionSpeedFadeOut, QString::number(fadeOutSpeed()));
-    tag.setAttribute(KXMLQLCFunctionSpeedDuration, QString::number(duration()));
-    root->appendChild(tag);
+    doc->writeStartElement(KXMLQLCFunctionSpeed);
+    doc->writeAttribute(KXMLQLCFunctionSpeedFadeIn, QString::number(fadeInSpeed()));
+    doc->writeAttribute(KXMLQLCFunctionSpeedFadeOut, QString::number(fadeOutSpeed()));
+    doc->writeAttribute(KXMLQLCFunctionSpeedDuration, QString::number(duration()));
+    doc->writeEndElement();
 
     return true;
 }
@@ -643,22 +836,39 @@ void Function::slotFixtureRemoved(quint32 fid)
 /*****************************************************************************
  * Load & Save
  *****************************************************************************/
-
-bool Function::loader(const QDomElement& root, Doc* doc)
+bool Function::saveXML(QXmlStreamWriter *doc)
 {
-    if (root.tagName() != KXMLQLCFunction)
+    Q_UNUSED(doc)
+    return false;
+}
+
+bool Function::loadXML(QXmlStreamReader &root)
+{
+    Q_UNUSED(root)
+    return false;
+}
+
+bool Function::loader(QXmlStreamReader &root, Doc* doc)
+{
+    if (root.name() != KXMLQLCFunction)
     {
         qWarning("Function node not found!");
         return false;
     }
 
+    QXmlStreamAttributes attrs = root.attributes();
+
     /* Get common information from the tag's attributes */
-    quint32 id = root.attribute(KXMLQLCFunctionID).toUInt();
-    QString name = root.attribute(KXMLQLCFunctionName);
-    Type type = Function::stringToType(root.attribute(KXMLQLCFunctionType));
+    quint32 id = attrs.value(KXMLQLCFunctionID).toString().toUInt();
+    QString name = attrs.value(KXMLQLCFunctionName).toString();
+    Type type = Function::stringToType(attrs.value(KXMLQLCFunctionType).toString());
     QString path;
-    if (root.hasAttribute(KXMLQLCFunctionPath))
-        path = root.attribute(KXMLQLCFunctionPath);
+    Universe::BlendMode blendMode = Universe::NormalBlend;
+
+    if (attrs.hasAttribute(KXMLQLCFunctionPath))
+        path = attrs.value(KXMLQLCFunctionPath).toString();
+    if (attrs.hasAttribute(KXMLQLCFunctionBlendMode))
+        blendMode = Universe::stringToBlendMode(attrs.value(KXMLQLCFunctionBlendMode).toString());
 
     /* Check for ID validity before creating the function */
     if (id == Function::invalidId())
@@ -694,6 +904,7 @@ bool Function::loader(const QDomElement& root, Doc* doc)
 
     function->setName(name);
     function->setPath(path);
+    function->setBlendMode(blendMode);
     if (function->loadXML(root) == true)
     {
         if (doc->addFunction(function, id) == true)
@@ -755,10 +966,15 @@ void Function::preRun(MasterTimer* timer)
     Q_UNUSED(timer);
 
     qDebug() << "Function preRun. Name:" << m_name << "ID: " << m_id;
-    m_stop = false;
     m_running = true;
 
     emit running(m_id);
+}
+
+void Function::write(MasterTimer *timer, QList<Universe *> universes)
+{
+    Q_UNUSED(timer);
+    Q_UNUSED(universes);
 }
 
 void Function::postRun(MasterTimer* timer, QList<Universe *> universes)
@@ -770,10 +986,7 @@ void Function::postRun(MasterTimer* timer, QList<Universe *> universes)
     m_stopMutex.lock();
     resetElapsed();
     resetAttributes();
-    m_stop = true;
-    //m_overrideFadeInSpeed = defaultSpeed();
-    //m_overrideFadeOutSpeed = defaultSpeed();
-    //m_overrideDuration = defaultSpeed();
+
     m_functionStopped.wakeAll();
     m_stopMutex.unlock();
 
@@ -786,6 +999,11 @@ bool Function::isRunning() const
     return m_running;
 }
 
+bool Function::isPaused() const
+{
+    return m_paused;
+}
+
 /*****************************************************************************
  * Elapsed ticks while running
  *****************************************************************************/
@@ -795,45 +1013,109 @@ quint32 Function::elapsed() const
     return m_elapsed;
 }
 
+quint32 Function::elapsedBeats() const
+{
+    return m_elapsedBeats;
+}
+
 void Function::resetElapsed()
 {
     qDebug() << Q_FUNC_INFO;
     m_elapsed = 0;
+    m_elapsedBeats = 0;
 }
 
 void Function::incrementElapsed()
 {
     // Don't wrap around. UINT_MAX is the maximum fade/hold time.
-    if (m_elapsed < UINT_MAX)
+    if (m_elapsed < UINT_MAX - MasterTimer::tick())
         m_elapsed += MasterTimer::tick();
+    else
+        m_elapsed = UINT_MAX;
+}
+
+void Function::incrementElapsedBeats()
+{
+    m_elapsedBeats += 1000;
+}
+
+void Function::roundElapsed(quint32 roundTime)
+{
+    if (roundTime == 0)
+        m_elapsed = 0;
+    else
+        m_elapsed %= roundTime;
 }
 
 /*****************************************************************************
  * Start & Stop
  *****************************************************************************/
 
-void Function::start(MasterTimer* timer, bool child, quint32 startTime,
-                     uint overrideFadeIn, uint overrideFadeOut, uint overrideDuration)
+void Function::start(MasterTimer* timer, FunctionParent source, quint32 startTime,
+                     uint overrideFadeIn, uint overrideFadeOut, uint overrideDuration, TempoType overrideTempoType)
 {
-    qDebug() << "Function start(). Name:" << m_name << "ID: " << m_id << ", startTime:" << startTime;
+    qDebug() << "Function start(). Name:" << m_name << "ID: " << m_id << "source:" << source.type() << source.id() << ", startTime:" << startTime;
+
     Q_ASSERT(timer != NULL);
-    m_startedAsChild = child;
+
+    {
+        QMutexLocker sourcesLocker(&m_sourcesMutex);
+        if (m_sources.contains(source))
+            return;
+        m_sources.append(source);
+        if (m_sources.size() > 1)
+            return;
+    }
+
+    /** If we're in a paused state, then just return to the running state
+     *  to let subclasses resuming what they were doing. */
+    if (m_paused == true)
+    {
+        m_paused = false;
+        return;
+    }
+
     m_elapsed = startTime;
+    m_elapsedBeats = 0;
     m_overrideFadeInSpeed = overrideFadeIn;
     m_overrideFadeOutSpeed = overrideFadeOut;
     m_overrideDuration = overrideDuration;
+    m_overrideTempoType = overrideTempoType == Original ? tempoType() : overrideTempoType;
+
+    m_stop = false;
     timer->startFunction(this);
 }
 
-bool Function::startedAsChild() const
+void Function::setPause(bool enable)
 {
-    return m_startedAsChild;
+    if (enable && isRunning() == false)
+        return;
+
+    m_paused = enable;
 }
 
-void Function::stop()
+void Function::stop(FunctionParent source)
 {
-    qDebug() << "Function stop(). Name:" << m_name << "ID: " << m_id;
-    m_stop = true;
+    qDebug() << "Function stop(). Name:" << m_name << "ID: " << m_id << "source:" << source.type() << source.id();
+
+    QMutexLocker sourcesLocker(&m_sourcesMutex);
+
+    if ((source.id() == id() && source.type() == FunctionParent::Function) ||
+        (source.type() == FunctionParent::Master) ||
+        (source.type() == FunctionParent::ManualVCWidget))
+    {
+        m_sources.clear();
+    }
+    else
+    {
+        m_sources.removeAll(source);
+    }
+
+    if (m_sources.size() == 0)
+    {
+        m_paused = false;
+        m_stop = true;
+    }
 }
 
 bool Function::stopped() const
@@ -841,15 +1123,26 @@ bool Function::stopped() const
     return m_stop;
 }
 
+bool Function::startedAsChild() const
+{
+    QMutexLocker sourcesLocker(const_cast<QMutex*>(&m_sourcesMutex));
+    foreach (FunctionParent source, m_sources)
+    {
+        if (source.type() == FunctionParent::Function && source.id() != id())
+            return true;
+    }
+    return false;
+}
+
 bool Function::stopAndWait()
 {
     bool result = true;
 
     m_stopMutex.lock();
-    m_stop = true;
+    stop(FunctionParent::master());
 
-    QTime watchdog;
-    watchdog.start();
+    QElapsedTimer watchdog;
+    watchdog.restart();
 
     // block thread for maximum 2 seconds
     while (m_running == true)
@@ -951,3 +1244,18 @@ QList<Attribute> Function::attributes()
     return m_attributes;
 }
 
+bool Function::contains(quint32 functionId)
+{
+    Q_UNUSED(functionId);
+    return false;
+}
+
+void Function::setBlendMode(Universe::BlendMode mode)
+{
+    m_blendMode = mode;
+}
+
+Universe::BlendMode Function::blendMode() const
+{
+    return m_blendMode;
+}

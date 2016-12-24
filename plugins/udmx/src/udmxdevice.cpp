@@ -35,6 +35,10 @@
 
 #define UDMX_SHARED_VENDOR     0x16C0 /* VOTI */
 #define UDMX_SHARED_PRODUCT    0x05DC /* Obdev's free shared PID */
+
+#define UDMX_AVLDIY_D512_CLONE_VENDOR     0x03EB /* Atmel Corp. (Clone VID)*/
+#define UDMX_AVLDIY_D512_CLONE_PRODUCT    0x8888 /* Clone PID */
+
 #define UDMX_SET_CHANNEL_RANGE 0x0002 /* Command to set n channel values */
 
 #define SETTINGS_FREQUENCY "udmx/frequency"
@@ -76,15 +80,15 @@ bool UDMXDevice::isUDMXDevice(const struct usb_device* device)
     if (device == NULL)
         return false;
 
-    if ((device->descriptor.idVendor == UDMX_SHARED_VENDOR) &&
-        (device->descriptor.idProduct == UDMX_SHARED_PRODUCT))
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+    if (device->descriptor.idVendor != UDMX_SHARED_VENDOR &&
+        device->descriptor.idVendor != UDMX_AVLDIY_D512_CLONE_VENDOR)
+            return false;
+
+    if (device->descriptor.idProduct != UDMX_SHARED_PRODUCT &&
+        device->descriptor.idProduct != UDMX_AVLDIY_D512_CLONE_PRODUCT)
+            return false;
+
+    return true;
 }
 
 void UDMXDevice::extractName()

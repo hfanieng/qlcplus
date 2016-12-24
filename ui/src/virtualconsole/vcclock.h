@@ -1,5 +1,5 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   vcclock.h
 
   Copyright (c) Massimo Callegari
@@ -20,10 +20,12 @@
 #ifndef VCCLOCK_H
 #define VCCLOCK_H
 
+#include <QDateTime>
+
 #include "vcwidget.h"
 
-class QDomDocument;
-class QDomElement;
+class QXmlStreamReader;
+class QXmlStreamWriter;
 class QPaintEvent;
 class InputMap;
 class Doc;
@@ -48,8 +50,8 @@ public:
     bool operator<(const VCClockSchedule& sch) const;
 
     /** Load & Save */
-    bool loadXML(const QDomElement* root);
-    bool saveXML(QDomDocument* doc, QDomElement* root);
+    bool loadXML(QXmlStreamReader &root);
+    bool saveXML(QXmlStreamWriter *doc);
 
 private:
     quint32 m_id;
@@ -106,6 +108,9 @@ private:
     QList<VCClockSchedule>m_scheduleList;
     int m_scheduleIndex;
 
+private:
+    FunctionParent functionParent() const;
+
     /*********************************************************************
      * Time
      *********************************************************************/
@@ -149,8 +154,8 @@ public:
      * Load & Save
      *********************************************************************/
 public:
-    bool loadXML(const QDomElement* root);
-    bool saveXML(QDomDocument* doc, QDomElement* vc_root);
+    bool loadXML(QXmlStreamReader &root);
+    bool saveXML(QXmlStreamWriter *doc);
 
     /*********************************************************************
      * Painting

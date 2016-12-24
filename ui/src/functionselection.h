@@ -65,6 +65,7 @@ public slots:
 private:
     Doc* m_doc;
     FunctionsTreeWidget *m_funcTree;
+    bool m_isInitializing;
 
     /*********************************************************************
      * None entry
@@ -169,6 +170,9 @@ protected:
      * Selection
      *********************************************************************/
 public:
+    /** Set current selection of function IDs in the tree */
+    void setSelection(QList<quint32> selection);
+
     /** Get a list of selected function IDs */
     const QList <quint32> selection() const;
 

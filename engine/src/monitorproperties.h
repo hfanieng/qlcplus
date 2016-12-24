@@ -26,8 +26,8 @@
 #include <QSize>
 #include <QHash>
 
-class QDomDocument;
-class QDomElement;
+class QXmlStreamReader;
+class QXmlStreamWriter;
 
 class Doc;
 
@@ -74,6 +74,8 @@ public:
 
     void removeFixture(quint32 fid);
 
+    bool hasFixturePosition(quint32 fid) { return m_fixtureItems.contains(fid); }
+
     void setFixturePosition(quint32 fid, QPointF pos);
     QPointF fixturePosition(quint32 fid) const { return m_fixtureItems[fid].m_position; }
 
@@ -94,6 +96,9 @@ public:
     void resetCustomBackgroundList() { m_customBackgroundImages.clear(); }
     QHash<quint32, QString> customBackgroundList() const { return m_customBackgroundImages; }
     QString customBackground(quint32 id);
+
+    FixtureItemProperties fixtureProperties(quint32 fid) const { return m_fixtureItems[fid]; }
+    void setFixtureProperties(quint32 fid, FixtureItemProperties props) { m_fixtureItems[fid] = props; }
 
     QList <quint32> fixtureItemsID() const { return m_fixtureItems.keys(); }
 
@@ -121,7 +126,7 @@ public:
      * @param root An XML subtree containing the Monitor properties
      * @return true if the properties were loaded successfully, otherwise false
      */
-    bool loadXML(const QDomElement& root, const Doc* mainDocument);
+    bool loadXML(QXmlStreamReader &root, const Doc* mainDocument);
 
     /**
      * Save the Monitor properties into an XML document, under the given
@@ -130,7 +135,7 @@ public:
      * @param doc The master XML document to save to.
      * @param wksp_root The workspace root element
      */
-    bool saveXML(QDomDocument* doc, QDomElement* wksp_root, const Doc * mainDocument) const;
+    bool saveXML(QXmlStreamWriter *doc, const Doc * mainDocument) const;
 };
 
 /** @} */

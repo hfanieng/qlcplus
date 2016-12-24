@@ -34,13 +34,13 @@ struct FixtureHead
     QGraphicsEllipseItem *m_item;
     QGraphicsEllipseItem *m_back;
 
-    //! cached rgb channels (absolute numbers)
+    //! cached rgb channels (channel indices)
     QList <quint32> m_rgb;
 
-    //! cached cmy channels (absolute numbers)
+    //! cached cmy channels (channel indices)
     QList <quint32> m_cmy;
 
-    //! cached color channels (absolute numbers)
+    //! cached color channels (channel indices)
     QList <quint32> m_colorWheels;
 
     //! map DMX values to colors
@@ -48,7 +48,7 @@ struct FixtureHead
      */
     QHash<quint32, QList<QColor> > m_colorValues;
 
-    /*! cached shutter channels (absolute values)
+    /*! cached shutter channels (channel indices)
      */
     QList <quint32> m_shutterChannels;
 
@@ -63,8 +63,13 @@ struct FixtureHead
     /*! map channel -> array of 256 bool values
      */
     QHash<quint32, QList<ShutterState> > m_shutterValues;
+    QColor m_color;
+    uchar m_dimmerValue;
+    ShutterState m_shutterState;
     int m_strobePhase;
+    QTimer* m_strobeTimer;
 
+    quint32 m_dimmer;
     quint32 m_masterDimmer;
     quint32 m_panChannel;
     int m_panMaxDegrees;
@@ -107,11 +112,14 @@ public:
     /** Return the number of heads represented by this item */
     int headsCount() { return m_heads.count(); }
 
+    /** Show/hide this fixture item label */
+    void showLabel(bool visible);
+
+protected slots:
     /** Update the fixture values for rendering, passing the
      *  universe array of values */
-    void updateValues(const QByteArray& ua);
-
-    void showLabel(bool visible);
+    void slotUpdateValues();
+    void slotStrobeTimer();
 
 protected:
     QRectF boundingRect() const;
@@ -124,8 +132,10 @@ protected:
 private:
     void computeTiltPosition(FixtureHead *h, uchar value);
     void computePanPosition(FixtureHead *h, uchar value);
-    QColor computeColor(FixtureHead *head, const QByteArray & us);
-    uchar computeAlpha(FixtureHead *head, const QByteArray & us);
+
+    QColor computeColor(const FixtureHead *head, const QByteArray & values);
+    uchar computeAlpha(const FixtureHead *head, const QByteArray & values);
+    FixtureHead::ShutterState computeShutter(const FixtureHead *head, const QByteArray & values);
 
 signals:
     void itemDropped(MonitorFixtureItem *);

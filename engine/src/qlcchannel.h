@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   qlcchannel.h
 
   Copyright (C) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -17,8 +18,8 @@
   limitations under the License.
 */
 
-#ifndef QLC_CHANNEL_H
-#define QLC_CHANNEL_H
+#ifndef QLCCHANNEL_H
+#define QLCCHANNEL_H
 
 #include <climits>
 #include <QString>
@@ -27,11 +28,11 @@
 
 class QFile;
 class QString;
-class QDomDocument;
-class QDomElement;
+class QLCChannel;
 class QStringList;
 class QLCCapability;
-class QLCChannel;
+class QXmlStreamReader;
+class QXmlStreamWriter;
 
 /** @addtogroup engine Engine
  * @{
@@ -126,7 +127,7 @@ public:
     QIcon getIcon() const;
 
     /** Get the channel's icon resource name */
-    QString getIconNameFromGroup(QLCChannel::Group grp) const;
+    QString getIconNameFromGroup(QLCChannel::Group grp, bool svg = false) const;
 
 private:
     QPixmap drawIntensity(QColor color, QString str) const;
@@ -135,7 +136,7 @@ private:
     QIcon getIntensityIcon() const;
 
     /** Get the intensity channel color name */
-    QString getIntensityColorCode() const;
+    QString getIntensityColorCode(bool svg = false) const;
 
 protected:
     Group m_group;
@@ -181,7 +182,9 @@ public:
         Yellow      = 0xFFFF00,
         Amber       = 0xFF7E00,
         White       = 0xFFFFFF,
-        UV          = 0x9400D3
+        UV          = 0x9400D3,
+        Lime        = 0xADFF2F,
+        Indigo      = 0x4B0082
     };
 
     /** Get a list of possible channel groups */
@@ -232,6 +235,9 @@ public:
     /** Remove a capability from the channel */
     bool removeCapability(QLCCapability* cap);
 
+    /** Change a current cap range, checking for feasibility */
+    bool setCapabilityRange(QLCCapability* cap, uchar min, uchar max);
+
     /** Sort capabilities to ascending order by their values */
     void sortCapabilities();
 
@@ -243,11 +249,11 @@ protected:
      * File operations
      *********************************************************************/
 public:
-    /** Save the channel to a QDomDocument, under the given element */
-    bool saveXML(QDomDocument* doc, QDomElement* root) const;
+    /** Save the channel to a QXmlStreamWriter */
+    bool saveXML(QXmlStreamWriter *doc) const;
 
     /** Load channel contents from an XML element */
-    bool loadXML(const QDomElement& tag);
+    bool loadXML(QXmlStreamReader &doc);
 };
 
 /** @} */

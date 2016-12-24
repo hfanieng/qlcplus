@@ -1,6 +1,6 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE FixtureDefinition>
-<FixtureDefinition xmlns="http://qlcplus.sourceforge.net/FixtureDefinition">
+<FixtureDefinition xmlns="http://www.qlcplus.org/FixtureDefinition">
  <Creator>
   <Name>Q Light Controller Plus</Name>
   <Version>4.8.3 GIT</Version>
@@ -26,7 +26,7 @@
  </Channel>
  <Channel Name="Gobo">
   <Group Byte="0">Gobo</Group>
-  <Capability Res="Others/gobo00022.png" Min="0" Max="9">Open</Capability>
+  <Capability Res="Others/open.png" Min="0" Max="9">Open</Capability>
   <Capability Res="ClayPaky/gobo00010.png" Min="10" Max="19">Dot</Capability>
   <Capability Res="SGM/gobo00007.png" Min="20" Max="29">Dots</Capability>
   <Capability Res="SGM-Color/gobo00389.png" Min="30" Max="39">Turbine</Capability>

@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   app.h
 
   Copyright (c) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -30,8 +31,6 @@
 #include "doc.h"
 
 class QProgressDialog;
-class QDomDocument;
-class QDomElement;
 class QMessageBox;
 class QToolButton;
 class QFileDialog;
@@ -66,16 +65,23 @@ public:
     ~App();
     void startup();
     void enableOverscan();
+    void disableGUI();
 
 private:
     void init();
     void closeEvent(QCloseEvent*);
     void setActiveWindow(const QString& name);
 
+#if defined(WIN32) || defined(Q_OS_WIN)
+protected:
+    bool nativeEvent(const QByteArray & eventType, void * message, long * result);
+#endif
+
 private:
     QTabWidget* m_tab;
     QDir m_workingDirectory;
     bool m_overscan;
+    bool m_noGui;
 
     /*********************************************************************
      * Progress dialog
@@ -100,6 +106,7 @@ public:
 
 private slots:
     void slotDocModified(bool state);
+    void slotUniversesWritten(int idx, const QByteArray& ua);
 
 private:
     void initDoc();
@@ -171,6 +178,7 @@ private:
 
     QAction* m_helpIndexAction;
     QAction* m_helpAboutAction;
+    QAction* m_quitAction;
     QMenu* m_fileOpenMenu;
     QMenu* m_fadeAndStopMenu;
 
@@ -218,7 +226,7 @@ public:
      *
      * @param doc The XML document to load from.
      */
-    bool loadXML(const QDomDocument& doc, bool goToConsole = false, bool fromMemory = false);
+    bool loadXML(QXmlStreamReader &doc, bool goToConsole = false, bool fromMemory = false);
 
     /**
      * Save workspace contents to a file with the given name. Changes the

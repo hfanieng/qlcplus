@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   efx.h
 
   Copyright (c) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -27,8 +28,7 @@
 #include "efxfixture.h"
 #include "function.h"
 
-class QDomDocument;
-class QDomElement;
+class QXmlStreamReader;
 class GenericFader;
 class QString;
 class Fixture;
@@ -94,6 +94,9 @@ class EFX : public Function
 public:
     EFX(Doc* doc);
     ~EFX();
+
+    /** @reimp */
+    QIcon getIcon() const;
 
     /*********************************************************************
      * Copying
@@ -161,7 +164,7 @@ public:
      *
      * @param polygon The polygon to fill with preview points
      */
-    void preview(QVector <QPoint>& polygon) const;
+    void preview(QPolygonF &polygon) const;
 
     /**
      * Get a preview of path for all contained fixtures. For format of the polygons,
@@ -169,11 +172,11 @@ public:
      *
      * @param polygons Array of polygons, one for each contained fixture.
      */
-    void previewFixtures(QVector <QVector <QPoint> >& polygons) const;
+    void previewFixtures(QVector<QPolygonF> &polygons) const;
 
 private:
 
-    void preview(QVector <QPoint>& polygon, Function::Direction direction, int startOffset) const;
+    void preview(QPolygonF &polygon, Function::Direction direction, int startOffset) const;
 
     /**
      * Calculate a single point with the currently selected algorithm,
@@ -185,7 +188,7 @@ private:
      * @param x Used to store the calculated X coordinate (output)
      * @param y Used to store the calculated Y coordinate (output)
      */
-    void calculatePoint(Function::Direction direction, int startOffset, qreal iterator, qreal* x, qreal* y) const;
+    void calculatePoint(Function::Direction direction, int startOffset, float iterator, float* x, float* y) const;
  
     /**
      * Rotate a point of the pattern by rot degrees and scale the point
@@ -199,7 +202,7 @@ private:
      * @param yOff Y offset of the pattern
      * @param rotation Degrees to rotate
      */
-    void rotateAndScale(qreal *x, qreal *y) const;
+    void rotateAndScale(float *x, float *y) const;
 
     /**
      * Calculate a single point with the currently selected algorithm,
@@ -209,7 +212,7 @@ private:
      * @param x Used to store the calculated X coordinate (output)
      * @param y Used to store the calculated Y coordinate (output)
      */
-    void calculatePoint(qreal iterator, qreal* x, qreal* y) const;
+    void calculatePoint(float iterator, float* x, float* y) const;
 
     /**
      * Recalculate iterator depending on direction
@@ -217,7 +220,7 @@ private:
      * @param direction Forward or Backward
      * @param iterator Step number (input)
      */
-    qreal calculateDirection(Function::Direction direction, qreal iterator) const;
+    float calculateDirection(Function::Direction direction, float iterator) const;
 
 private:
     /** Current algorithm used by the EFX */
@@ -245,7 +248,7 @@ private:
     /**
      * Pattern width, see setWidth()
      */
-    qreal m_width;
+    float m_width;
 
     /*********************************************************************
      * Height
@@ -269,7 +272,7 @@ private:
     /**
      * Pattern height, see setHeight()
      */
-    qreal m_height;
+    float m_height;
 
     /*********************************************************************
      * Rotation
@@ -304,12 +307,12 @@ private:
     /**
      * cached cos(m_rotation) to speed up computation
      */
-    qreal m_cosR;
+    double m_cosR;
 
     /**
      * cached sin(m_rotation) to speed up computation
      */
-    qreal m_sinR;
+    double m_sinR;
 
     /*********************************************************************
      * Start Offset
@@ -331,7 +334,7 @@ public:
 
 private:
 
-    qreal convertOffset(int offset) const;
+    float convertOffset(int offset) const;
 
 private:
     /**
@@ -399,12 +402,12 @@ private:
     /**
      * Pattern X offset, see setXOffset()
      */
-    qreal m_xOffset;
+    float m_xOffset;
 
     /**
      * Pattern Y offset, see setXOffset()
      */
-    qreal m_yOffset;
+    float m_yOffset;
 
     /*********************************************************************
      * Frequency
@@ -447,12 +450,12 @@ private:
     /**
      * Lissajous pattern X frequency, see setXFrequency()
      */
-    qreal m_xFrequency;
+    float m_xFrequency;
 
     /**
      * Lissajous pattern Y frequency, see setYFrequency()
      */
-    qreal m_yFrequency;
+    float m_yFrequency;
 
     /*********************************************************************
      * Phase
@@ -495,12 +498,12 @@ private:
     /**
      * Lissajous pattern X phase, see setXPhase()
      */
-    qreal m_xPhase;
+    float m_xPhase;
 
     /**
      * Lissajous pattern Y phase, see setYPhase()
      */
-    qreal m_yPhase;
+    float m_yPhase;
 
     /*********************************************************************
      * Fixtures
@@ -562,13 +565,13 @@ private:
      * Load & Save
      *********************************************************************/
 public:
-    bool saveXML(QDomDocument* doc, QDomElement* wksp_root);
-    bool loadXML(const QDomElement& root);
+    bool saveXML(QXmlStreamWriter *doc);
+    bool loadXML(QXmlStreamReader &root);
     void postLoad();
 
 private:
     /** Load an axis' contents from an XML document*/
-    bool loadXMLAxis(const QDomElement& root);
+    bool loadXMLAxis(QXmlStreamReader &root);
 
     /*********************************************************************
      * Speed

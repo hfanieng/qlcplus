@@ -1,8 +1,9 @@
 /*
-  Q Light Controller
+  Q Light Controller Plus
   qlcfile.cpp
 
   Copyright (C) Heikki Junnila
+                Massimo Callegari
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -17,8 +18,16 @@
   limitations under the License.
 */
 
+#include <QXmlStreamReader>
+#include <QXmlStreamWriter>
+#include <QCoreApplication>
 #include <QFile>
-#include <QtXml>
+
+#ifdef QT_XML_LIB
+#   include <QtXml>
+#else
+#   include <QDebug>
+#endif
 
 #if defined(WIN32) || defined(Q_OS_WIN)
 #   include <windows.h>
@@ -32,8 +41,9 @@
 #include "qlcconfig.h"
 #include "qlcfile.h"
 
-#define KXMLQLCplusNamespace "http://qlcplus.sourceforge.net/"
+bool QLCFile::m_isRaspberry = false;
 
+#ifdef QT_XML_LIB
 QDomDocument QLCFile::readXML(const QString& path)
 {
     if (path.isEmpty() == true)
@@ -74,7 +84,7 @@ QDomDocument QLCFile::getXMLHeader(const QString& content, const QString& author
     QDomImplementation dom;
     QDomDocument doc(dom.createDocumentType(content, QString(), QString()));
 
-    QDomProcessingInstruction instr = doc.createProcessingInstruction( 
+    QDomProcessingInstruction instr = doc.createProcessingInstruction(
         "xml", "version='1.0' encoding='UTF-8'");
 
     doc.appendChild(instr);
@@ -115,6 +125,67 @@ QDomDocument QLCFile::getXMLHeader(const QString& content, const QString& author
     subtag.appendChild(text);
 
     return doc;
+}
+#endif
+
+QXmlStreamReader *QLCFile::getXMLReader(const QString &path)
+{
+    QXmlStreamReader *reader = NULL;
+
+    if (path.isEmpty() == true)
+    {
+        qWarning() << Q_FUNC_INFO
+                   << "Empty path given. Not attempting to load file.";
+        return reader;
+    }
+
+    QFile *file = new QFile(path);
+    if (file->open(QIODevice::ReadOnly | QFile::Text) == true)
+    {
+        reader = new QXmlStreamReader(file);
+    }
+    else
+    {
+        qWarning() << Q_FUNC_INFO << "Unable to open file:" << path;
+    }
+
+    return reader;
+}
+
+void QLCFile::releaseXMLReader(QXmlStreamReader *reader)
+{
+    if (reader == NULL)
+        return;
+    if (reader->device() != NULL)
+    {
+        if (reader->device()->isOpen())
+            reader->device()->close();
+        delete reader->device();
+    }
+    delete reader;
+}
+
+bool QLCFile::writeXMLHeader(QXmlStreamWriter *xml, const QString &content, const QString &author)
+{
+    if (xml == NULL || xml->device() == NULL)
+        return false;
+
+    xml->writeStartDocument();
+    xml->writeDTD(QString("<!DOCTYPE %1>").arg(content));
+
+    xml->writeStartElement(content);
+    xml->writeAttribute("xmlns", KXMLQLCplusNamespace + content);
+
+    xml->writeStartElement(KXMLQLCCreator);
+    xml->writeTextElement(KXMLQLCCreatorName, APPNAME);
+    xml->writeTextElement(KXMLQLCCreatorVersion, APPVERSION);
+    if (author.isEmpty())
+        xml->writeTextElement(KXMLQLCCreatorAuthor, currentUserName());
+    else
+        xml->writeTextElement(KXMLQLCCreatorAuthor, author);
+    xml->writeEndElement(); // close KXMLQLCCreator
+
+    return true;
 }
 
 QString QLCFile::errorString(QFile::FileError error)
@@ -166,6 +237,9 @@ QString QLCFile::currentUserName()
     else
         return QString("Unknown windows user");
 #else
+ #if defined(Q_OS_ANDROID)
+    return QString(getenv("USER"));
+ #else
     QString name;
     struct passwd* passwd = getpwuid(getuid());
     if (passwd == NULL)
@@ -174,10 +248,11 @@ QString QLCFile::currentUserName()
         name.append(passwd->pw_gecos);
     name.remove(",,,");
     return name;
+ #endif
 #endif
 }
 
-bool QLCFile::isRaspberry()
+void QLCFile::checkRaspberry()
 {
 #if defined(Q_WS_X11) || defined(Q_OS_LINUX)
     QFile cpuInfoFile("/proc/cpuinfo");
@@ -187,24 +262,31 @@ bool QLCFile::isRaspberry()
         QString content = QLatin1String(cpuInfoFile.readAll());
         cpuInfoFile.close();
         if (content.contains("BCM2708") || content.contains("BCM2709"))
-            return true;
+            m_isRaspberry = true;
     }
-    return false;
-#else
-    return false;
 #endif
+}
+
+bool QLCFile::isRaspberry()
+{
+    return m_isRaspberry;
 }
 
 QDir QLCFile::systemDirectory(QString path, QString extension)
 {
     QDir dir;
-#if defined(__APPLE__) || defined(Q_OS_MAC)
-         dir.setPath(QString("%1/../%2").arg(QCoreApplication::applicationDirPath())
-                    .arg(path));
+#if defined(Q_OS_IOS)
+    dir.setPath(QString("%1/%2").arg(QCoreApplication::applicationDirPath())
+                                   .arg(path));
+#elif defined(__APPLE__) || defined(Q_OS_MAC)
+    dir.setPath(QString("%1/../%2").arg(QCoreApplication::applicationDirPath())
+                                   .arg(path));
 #elif defined(WIN32) || defined(Q_OS_WIN)
-        dir.setPath(QString("%1%2%3").arg(QCoreApplication::applicationDirPath())
-                    .arg(QDir::separator())
-                    .arg(path));
+    dir.setPath(QString("%1%2%3").arg(QCoreApplication::applicationDirPath())
+                                 .arg(QDir::separator())
+                                 .arg(path));
+#elif defined(Q_OS_ANDROID)
+    dir.setPath(QString("assets:/%1").arg(path.remove(0, path.lastIndexOf("/") + 1)));
 #else
     dir.setPath(path);
 #endif

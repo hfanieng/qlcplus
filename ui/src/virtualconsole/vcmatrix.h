@@ -31,8 +31,8 @@
 
 class ClickAndGoSlider;
 class ClickAndGoWidget;
-class QDomDocument;
-class QDomElement;
+class QXmlStreamReader;
+class QXmlStreamWriter;
 class FlowLayout;
 
 /** @addtogroup ui_vc_widgets
@@ -84,6 +84,7 @@ public:
 private:
     quint32 m_matrixID;
     ClickAndGoSlider *m_slider;
+    bool m_sliderExternalMovement;
     QLabel *m_label;
     QToolButton *m_startColorButton;
     ClickAndGoWidget *m_scCnGWidget;
@@ -144,6 +145,9 @@ public:
      */
     quint32 function() const;
 
+    /** @reimp */
+    virtual void notifyFunctionStarting(quint32 fid, qreal intensity);
+
 private slots:
     /** Update slider when function stops. */
     void slotFunctionStopped();
@@ -154,7 +158,10 @@ private slots:
     void slotUpdate();
 
 private:
-    /** timer for updating the step list */
+    FunctionParent functionParent() const;
+
+private:
+    /** timer for updating the controls */
     QTimer* m_updateTimer;
 
     /*********************************************************************
@@ -228,8 +235,8 @@ protected slots:
      * Load & Save
      *********************************************************************/
 public:
-    bool loadXML(const QDomElement* root);
-    bool saveXML(QDomDocument* doc, QDomElement* vc_root);
+    bool loadXML(QXmlStreamReader &root);
+    bool saveXML(QXmlStreamWriter *doc);
 
 };
 

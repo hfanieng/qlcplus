@@ -6,7 +6,7 @@ INCLUDEPATH += ../common
 DEPENDPATH  += ../common
 
 CONFIG  += qt
-QT      += core xml
+QT      += core
 
 HEADERS     += ../../interfaces/qlcioplugin.h
 HEADERS     += ../../../engine/src/qlcfile.h
@@ -19,6 +19,7 @@ HEADERS += ../common/mididevice.h \
            ../common/midienumerator.h \
            ../common/configuremidiplugin.h
 
+SOURCES += ../../interfaces/qlcioplugin.cpp
 SOURCES += ../common/mididevice.cpp \
            ../common/midiinputdevice.cpp \
            ../common/midioutputdevice.cpp \
@@ -33,7 +34,7 @@ FORMS   += ../common/configuremidiplugin.ui
 
 # This must be after "TARGET = " and before target installation so that
 # install_name_tool can be run before target installation
-macx:include(../../../macx/nametool.pri)
+macx:include(../../../platforms/macos/nametool.pri)
 
 target.path = $$INSTALLROOT/$$PLUGINDIR
 INSTALLS   += target

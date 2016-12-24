@@ -1,3 +1,22 @@
+/*
+  Q Light Controller Plus
+  virtualconsole.js
+  
+  Copyright (c) Massimo Callegari
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0.txt
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+*/
+
 /* VCButton */
 function buttonClick(id) {
  var obj = document.getElementById(id);
@@ -31,12 +50,11 @@ function sendCueCmd(id, cmd) {
  if (cmd == "PLAY") {
    var obj = document.getElementById("play" + id);
    if (cueListsIndices[id] == -1) {
-     obj.innerHTML = "<img src=\"player_stop.png\" width=\"27\">";
+     obj.innerHTML = "<img src=\"player_pause.png\" width=\"27\">";
      setCueIndex(id, 0);
    }
    else {
      obj.innerHTML = "<img src=\"player_play.png\" width=\"27\">";
-     setCueIndex(id, -1);
    }
  }
  websocket.send(id + "|" + cmd);
@@ -52,12 +70,14 @@ function checkMouseOut(id, idx) {
 
 function enableCue(id, idx) {
  var btnObj = document.getElementById("play" + id);
- btnObj.innerHTML = "<img src=\"player_stop.png\" width=\"27\">";
+ btnObj.innerHTML = "<img src=\"player_pause.png\" width=\"27\">";
  setCueIndex(id, idx);
  websocket.send(id + "|STEP|" + idx);
 }
 
 /* VCFrame */
+var framesWidth = new Array();
+var framesHeight = new Array();
 var framesTotalPages = new Array();
 var framesCurrentPage = new Array();
 
@@ -65,6 +85,29 @@ function updateFrameLabel(id) {
  var framePageObj = document.getElementById("fr" + id + "Page");
  var newLabel = "Page " + (framesCurrentPage[id] + 1);
  framePageObj.innerHTML = newLabel;
+}
+
+function frameToggleCollapse(id) {
+  var frameObj = document.getElementById("fr" + id);
+  var mpHeader = document.getElementById("frMpHdr" + id);
+  var origWidth = framesWidth[id];
+  var origHeight = framesHeight[id];
+
+  if (frameObj.clientWidth == origWidth)
+  {
+    frameObj.style.width = "200px";
+    if (mpHeader) mpHeader.style.visibility = 'hidden';
+  }
+  else
+  {
+    frameObj.style.width = origWidth + "px";
+    if (mpHeader) mpHeader.style.visibility = 'visible';
+  }
+
+  if (frameObj.clientHeight == origHeight)
+    frameObj.style.height = "36px";
+  else
+    frameObj.style.height = origHeight + "px";
 }
 
 function frameNextPage(id) {

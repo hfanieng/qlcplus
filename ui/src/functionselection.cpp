@@ -53,6 +53,7 @@
 FunctionSelection::FunctionSelection(QWidget* parent, Doc* doc)
     : QDialog(parent)
     , m_doc(doc)
+    , m_isInitializing(true)
     , m_none(false)
     , m_noneItem(NULL)
     , m_newTrack(false)
@@ -67,6 +68,7 @@ FunctionSelection::FunctionSelection(QWidget* parent, Doc* doc)
                )
     , m_disableFilters(0)
     , m_constFilter(false)
+    , m_showSequences(false)
 {
     Q_ASSERT(doc != NULL);
 
@@ -181,12 +183,14 @@ int FunctionSelection::exec()
     else
         m_funcTree->setSelectionMode(QAbstractItemView::SingleSelection);
 
+    m_isInitializing = false;
+
+    refillTree();
+
     connect(m_funcTree, SIGNAL(itemSelectionChanged()),
             this, SLOT(slotItemSelectionChanged()));
     connect(m_funcTree, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)),
             this, SLOT(slotItemDoubleClicked(QTreeWidgetItem*)));
-
-    refillTree();
 
     slotItemSelectionChanged();
 
@@ -279,6 +283,11 @@ void FunctionSelection::showSequences(bool show)
  * Selection
  *****************************************************************************/
 
+void FunctionSelection::setSelection(QList<quint32> selection)
+{
+    m_selection = selection;
+}
+
 const QList <quint32> FunctionSelection::selection() const
 {
     return m_selection;
@@ -290,6 +299,13 @@ const QList <quint32> FunctionSelection::selection() const
 
 void FunctionSelection::refillTree()
 {
+    if (m_isInitializing == true)
+        return;
+
+    // m_selection will be erased when calling setSelected() on each new item.
+    // A backup in made so current selection is applied correctly.
+    QList<quint32> selection = m_selection;
+
     m_funcTree->clearTree();
 
     // Show a "none" entry
@@ -299,6 +315,7 @@ void FunctionSelection::refillTree()
         m_noneItem->setText(KColumnName, tr("<No function>"));
         m_noneItem->setIcon(KColumnName, QIcon(":/uncheck.png"));
         m_noneItem->setData(KColumnName, Qt::UserRole, Function::invalidId());
+        m_noneItem->setSelected(selection.contains(Function::invalidId()));
     }
 
     if (m_newTrack == true)
@@ -309,33 +326,44 @@ void FunctionSelection::refillTree()
         m_newTrackItem->setData(KColumnName, Qt::UserRole, Function::invalidId());
     }
 
+    // these need their parent scene to be loaded first
+    QList<Function*> sequences;
+
     /* Fill the tree */
     foreach (Function* function, m_doc->functions())
     {
-        if (m_runningOnlyFlag == true && function->isRunning() == false)
+        if (m_runningOnlyFlag == true && !function->isRunning())
             continue;
 
-        if (m_filter & function->type())
+        if (function->type() == Function::Chaser && qobject_cast<Chaser*>(function)->isSequence() == true)
+            sequences.append(function);
+        else if (m_filter & function->type())
         {
             QTreeWidgetItem* item = m_funcTree->addFunction(function->id());
             if (disabledFunctions().contains(function->id()))
                 item->setFlags(0); // Disable the item
+            else
+                item->setSelected(selection.contains(function->id()));
         }
+    }
 
-        if (function->type() == Function::Chaser && m_showSequences == true)
+    foreach (Function* function, sequences)
+    {
+        // Show sequence attached to its scene when chasers are filtered out
+        if ((m_filter & Function::Chaser) || (m_showSequences && (m_filter & Function::Scene)))
         {
-            Chaser *chs = qobject_cast<Chaser*>(function);
-            if (chs->isSequence() == true)
+            QTreeWidgetItem* item = m_funcTree->addFunction(function->id());
+            if (disabledFunctions().contains(function->id()))
+                item->setFlags(0); // Disables the item
+            else
             {
-                QTreeWidgetItem* item = m_funcTree->addFunction(function->id());
-                if (disabledFunctions().contains(function->id()))
-                    item->setFlags(0); // Disables the item
-                else
-                    if (item->parent() != NULL)
-                        item->parent()->setFlags(item->parent()->flags() | Qt::ItemIsEnabled);
+                item->setSelected(selection.contains(function->id()));
+                if (item->parent() != NULL)
+                    item->parent()->setFlags(item->parent()->flags() | Qt::ItemIsEnabled);
             }
         }
     }
+
     m_funcTree->resizeColumnToContents(KColumnName);
     for (int i = 0; i < m_funcTree->topLevelItemCount(); i++)
     {

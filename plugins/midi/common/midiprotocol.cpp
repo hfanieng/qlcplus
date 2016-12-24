@@ -108,8 +108,12 @@ bool QLCMIDIProtocol::midiSysCommonToInput(uchar cmd, uchar data1, uchar data2,
 
         case MIDI_BEAT_START:
         case MIDI_BEAT_CONTINUE:
-        case MIDI_BEAT_STOP:
             *channel = CHANNEL_OFFSET_MBC_PLAYBACK;
+            *value = 127;
+            return true;
+
+        case MIDI_BEAT_STOP:
+            *channel = CHANNEL_OFFSET_MBC_STOP;
             *value = 127;
             return true;
 
@@ -119,7 +123,7 @@ bool QLCMIDIProtocol::midiSysCommonToInput(uchar cmd, uchar data1, uchar data2,
 }
 
 bool QLCMIDIProtocol::feedbackToMidi(quint32 channel, uchar value,
-                                     uchar midiChannel, uchar* cmd,
+                                     uchar midiChannel, bool sendNoteOff, uchar* cmd,
                                      uchar* data1, uchar* data2)
 {
     // for OMNI mode, retrieve the original MIDI channel where data was sent
@@ -137,7 +141,7 @@ bool QLCMIDIProtocol::feedbackToMidi(quint32 channel, uchar value,
     }
     else if (channel >= CHANNEL_OFFSET_NOTE && channel <= CHANNEL_OFFSET_NOTE_MAX)
     {
-        if (value == 0)
+        if (value == 0 && sendNoteOff)
             *cmd = MIDI_NOTE_OFF;
         else
             *cmd = MIDI_NOTE_ON;
